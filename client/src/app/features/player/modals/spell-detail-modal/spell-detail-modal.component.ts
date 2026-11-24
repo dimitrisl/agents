@@ -19,11 +19,14 @@ export class SpellDetailModalComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   @Input({ required: true }) spellName!: string;
   @Input() isPrepared = false;
+  @Input() isAlwaysPrepared = false;
   @Input() spellLevel?: number;
   @Input() canCast = false;
+  @Input() canCastAsRitual = false;
 
   @Output() close = new EventEmitter<void>();
   @Output() cast = new EventEmitter<void>();
+  @Output() castRitual = new EventEmitter<void>();
   @Output() openUpcast = new EventEmitter<void>();
 
   isLoading = signal(true);

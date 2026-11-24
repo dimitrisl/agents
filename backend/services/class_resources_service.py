@@ -71,15 +71,27 @@ def rules_pools(
     edition: Optional[str],
     race: Optional[str] = None,
     total_level: Optional[int] = None,
+    subclass: Optional[str] = None,
+    features_traits: Optional[List[Any]] = None,
+    char_class: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Every pool the character's classes and race/species grant right now."""
     edition_key = _edition_key(edition)
     by_class = _load_rules().get(edition_key, {})
     pools: Dict[str, Dict[str, Any]] = {}
+    has_natural_recovery_feature = any(
+        "natural recovery" in _norm(f.get("name") if isinstance(f, dict) else f)
+        for f in (features_traits or [])
+    )
+    primary_low = _norm(char_class)
 
-    for entry in classes:
+    for idx, entry in enumerate(classes):
         class_name = _norm(entry.get("class_name"))
         class_level = int(entry.get("level") or 1)
+        use_top_sub = (
+            idx == 0 or len(classes) == 1 or (bool(primary_low) and class_name == primary_low)
+        )
+        entry_sub = _norm(entry.get("subclass") or (subclass if use_top_sub else None))
         for rule in by_class.get(class_name, []):
             maximum = _pool_max(rule, class_level, stats)
             if maximum <= 0:
@@ -101,6 +113,18 @@ def rules_pools(
             # Multiclass overlap (Cleric + Paladin Channel Divinity): keep the larger pool.
             if not existing or existing["max"] < maximum:
                 pools[rule["id"]] = pool
+
+        if class_name == "druid" and (
+            ("land" in entry_sub and class_level >= (6 if edition_key == "2024" else 2))
+            or (has_natural_recovery_feature and class_level >= 2)
+        ):
+            pools["natural_recovery"] = {
+                "name": "Natural Recovery",
+                "max": 1,
+                "recharge": "long",
+                "auto": True,
+                "_aliases": {"natural recovery"},
+            }
 
     race_low = _norm(race)
     if race_low:
@@ -133,6 +157,9 @@ def sync_class_resources(
     edition: Optional[str],
     race: Optional[str] = None,
     total_level: Optional[int] = None,
+    subclass: Optional[str] = None,
+    features_traits: Optional[List[Any]] = None,
+    char_class: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Merges the rules pools into the character's existing ``class_resources``.
@@ -149,7 +176,16 @@ def sync_class_resources(
     result: List[Dict[str, Any]] = []
     used = set()
 
-    for pool in rules_pools(classes, stats, edition, race=race, total_level=total_level):
+    for pool in rules_pools(
+        classes,
+        stats,
+        edition,
+        race=race,
+        total_level=total_level,
+        subclass=subclass,
+        features_traits=features_traits,
+        char_class=char_class,
+    ):
         match = next(
             (
                 i

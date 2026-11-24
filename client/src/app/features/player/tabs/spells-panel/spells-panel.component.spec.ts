@@ -391,4 +391,138 @@ describe('SpellsPanelComponent', () => {
       expect(component.upcastTarget()).toEqual({ spellName: 'Hex', baseLevel: 1 });
     });
   });
+
+  describe('Prepared Cap, Always-Prepared Split & Ritual Casting (#261)', () => {
+    function buildPreparedHero(overrides: Partial<CharacterSchema> = {}): CharacterSchema {
+      return {
+        char_id: 'cleric-261',
+        char_name: 'Aria',
+        char_class: 'Cleric',
+        subclass: 'Life Domain',
+        char_level: 3,
+        race: 'Human',
+        background: 'Acolyte',
+        armor_class: 18,
+        hp_max: 24,
+        proficiency_bonus: 2,
+        speed: 30,
+        dnd_edition: '2014 Edition',
+        stats: { STR: 14, DEX: 10, CON: 14, INT: 10, WIS: 14, CHA: 12 },
+        spells: {
+          cantrips: ['Sacred Flame'],
+          level_1: ['Bless', 'Detect Magic', 'Guiding Bolt', 'Healing Word', 'Command'],
+          level_2: ['Aid', 'Hold Person'],
+        },
+        prepared_spells: ['Guiding Bolt'],
+        always_prepared_spells: ['Bless'],
+        max_prepared_spells: 2,
+        spell_slots: {
+          level_1: { max: 4, used: 0 },
+          level_2: { max: 2, used: 0 },
+        },
+        ...overrides,
+      };
+    }
+
+    it('displays Prepared count excluding cantrips/always-prepared and locks always-prepared toggles', () => {
+      fixture.componentRef.setInput('char', buildPreparedHero());
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('Prepared: 1 / 2');
+      expect(el.textContent).toContain('Always');
+      expect(component.isAlwaysPrepared('Bless')).toBe(true);
+      expect(component.preparedCount).toBe(1);
+      expect(component.maxPreparedCount).toBe(2);
+
+      // Always-prepared spell cannot be unprepared via togglePrepared
+      jest.spyOn(component.save, 'emit');
+      component.togglePrepared('Bless', 1);
+      expect(component.save.emit).not.toHaveBeenCalled();
+    });
+
+    it('enforces max_prepared_spells cap when toggling preparation', () => {
+      fixture.componentRef.setInput('char', buildPreparedHero());
+      fixture.detectChanges();
+      jest.spyOn(component.save, 'emit');
+
+      // 1/2 -> can prepare Healing Word cleanly
+      component.togglePrepared('Healing Word', 1);
+      expect(component.preparedCount).toBe(2);
+      expect(component.save.emit).toHaveBeenCalledTimes(1);
+
+      // 2/2 -> preparing a 3rd manual spell is blocked at cap
+      expect(component.canPrepareToggle).toBe(true);
+      component.togglePrepared('Command', 1);
+      expect(component.preparedCount).toBe(2);
+      expect(component.save.emit).toHaveBeenCalledTimes(1);
+    });
+
+    it('gates ritual casting per 2014 edition rules (Wizard book ok vs unprepared Cleric blocked vs non-ritual blocked)', () => {
+      // Unprepared 2014 Cleric cannot cast Detect Magic as ritual, nor Hold Person
+      fixture.componentRef.setInput('char', buildPreparedHero());
+      fixture.detectChanges();
+      expect(component.canRitualCast('Detect Magic')).toBe(false);
+      expect(component.canRitualCast('Hold Person')).toBe(false);
+
+      // Preparing Detect Magic unlocks ritual casting in 2014 Cleric
+      fixture.componentRef.setInput(
+        'char',
+        buildPreparedHero({ prepared_spells: ['Detect Magic'] })
+      );
+      fixture.detectChanges();
+      expect(component.canRitualCast('Detect Magic')).toBe(true);
+
+      // 2014 Wizard can cast unprepared Detect Magic from spellbook, but never Hold Person
+      fixture.componentRef.setInput(
+        'char',
+        buildPreparedHero({
+          char_class: 'Wizard',
+          prepared_spells: [],
+          always_prepared_spells: [],
+        })
+      );
+      fixture.detectChanges();
+      expect(component.canRitualCast('Detect Magic')).toBe(true);
+      expect(component.canRitualCast('Hold Person')).toBe(false);
+    });
+
+    it('renders mobile prepared counter in 2024 Revision and resets filters on hero switch', () => {
+      fixture.componentRef.setInput('compactMobile', true);
+      fixture.componentRef.setInput(
+        'char',
+        buildPreparedHero({
+          char_class: 'Ranger',
+          dnd_edition: '2024 Revision (5.5e)',
+          prepared_spells: ['Detect Magic'],
+          always_prepared_spells: ["Hunter's Mark"],
+          max_prepared_spells: 4,
+        })
+      );
+      component.selectedFilter.set('prepared');
+      component.searchQuery.set('Detect');
+      fixture.detectChanges();
+
+      const badge = (fixture.nativeElement as HTMLElement).querySelector(
+        '[data-testid="mobile-prepared-counter"]'
+      );
+      expect(badge?.textContent).toContain('Prep 1/4');
+      expect(component.canRitualCast('Detect Magic')).toBe(true);
+
+      // Switching hero resets searchQuery & selectedFilter
+      fixture.componentRef.setInput(
+        'char',
+        buildPreparedHero({
+          char_id: 'other-hero',
+          char_name: 'Kael',
+          dnd_edition: '2014 Edition',
+          char_class: 'Bard',
+          max_prepared_spells: null,
+        })
+      );
+      fixture.detectChanges();
+      expect(component.selectedFilter()).toBe('all');
+      expect(component.searchQuery()).toBe('');
+    });
+  });
 });

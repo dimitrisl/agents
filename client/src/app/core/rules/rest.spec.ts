@@ -1,13 +1,17 @@
 import { CharacterSchema } from '../models/character.model';
 import {
+  applyShortRestSlotRecovery,
   availableHitDice,
   availableHitDieOptions,
   conModifier,
+  harnessDivinePowerMaxSlotLevel,
+  hasShortRestSlotRecovery,
   hitDieSize,
   planShortRest,
   rechargeShortRestResources,
   resolveLongRest,
   resolveShortRest,
+  shortRestRecoveryBudget,
   songOfRestDie,
   warlockPactDetails,
 } from './rest';
@@ -315,6 +319,144 @@ describe('rest rules', () => {
         { className: 'Paladin', level: 5, dieSize: 10 },
         { className: 'Sorcerer', level: 3, dieSize: 6 },
       ]);
+    });
+  });
+
+  describe('short-rest spell slot recovery helpers', () => {
+    it('computes Arcane Recovery and Natural Recovery budgets across 2014 and 2024', () => {
+      const wiz = hero({
+        char_class: 'Wizard',
+        char_level: 5,
+        classes: [{ class_name: 'Wizard', level: 5 }],
+        class_resources: [{ name: 'Arcane Recovery', current: 1, max: 1, recharge: 'long' }],
+      });
+      expect(shortRestRecoveryBudget(wiz, 'arcane_recovery')).toBe(3);
+
+      const wizSpent = hero({
+        ...wiz,
+        class_resources: [{ name: 'Arcane Recovery', current: 0, max: 1, recharge: 'long' }],
+      });
+      expect(shortRestRecoveryBudget(wizSpent, 'arcane_recovery')).toBe(0);
+
+      const land2014 = hero({
+        char_class: 'Druid',
+        subclass: 'Circle of the Land',
+        char_level: 4,
+        dnd_edition: '2014 Edition',
+        classes: [{ class_name: 'Druid', subclass: 'Circle of the Land', level: 4 }],
+        class_resources: [{ name: 'Natural Recovery', current: 1, max: 1, recharge: 'long' }],
+      });
+      expect(shortRestRecoveryBudget(land2014, 'natural_recovery')).toBe(2);
+
+      const land2024Low = hero({
+        ...land2014,
+        dnd_edition: '2024 Revision (5.5e)',
+      });
+      expect(shortRestRecoveryBudget(land2024Low, 'natural_recovery')).toBe(0);
+
+      const land2024L6 = hero({
+        char_class: 'Druid',
+        subclass: 'Circle of the Land',
+        char_level: 6,
+        dnd_edition: '2024 Revision (5.5e)',
+        classes: [{ class_name: 'Druid', subclass: 'Circle of the Land', level: 6 }],
+        class_resources: [{ name: 'Natural Recovery', current: 1, max: 1, recharge: 'long' }],
+      });
+      expect(shortRestRecoveryBudget(land2024L6, 'natural_recovery')).toBe(3);
+    });
+
+    it('computes Harness Divine Power cap and allows 0-Hit-Dice short rest plans', () => {
+      const cleric = hero({
+        char_class: 'Cleric',
+        char_level: 5,
+        proficiency_bonus: 3,
+        classes: [{ class_name: 'Cleric', level: 5 }],
+        class_resources: [{ name: 'Channel Divinity', current: 1, max: 2, recharge: 'short' }],
+        hit_dice_used: 5,
+      });
+      expect(harnessDivinePowerMaxSlotLevel(cleric)).toBe(2);
+      expect(hasShortRestSlotRecovery(cleric)).toBe(true);
+      expect(planShortRest(cleric, 0, 8)).toEqual({
+        diceSpent: 0,
+        dieSize: 8,
+        conBonus: 0,
+        conModifier: 2,
+      });
+
+      const noCd = hero({
+        ...cleric,
+        class_resources: [{ name: 'Channel Divinity', current: 0, max: 2, recharge: 'short' }],
+      });
+      expect(harnessDivinePowerMaxSlotLevel(noCd)).toBe(0);
+      expect(hasShortRestSlotRecovery(noCd)).toBe(false);
+    });
+
+    it('immutably recovers spell slots and consumes Arcane/Natural Recovery & Channel Divinity', () => {
+      const slots = {
+        level_1: { max: 4, used: 2 },
+        level_2: { max: 3, used: 1 },
+      };
+      const resources = [
+        { name: 'Arcane Recovery', current: 1, max: 1, recharge: 'long' as const },
+        { name: 'Channel Divinity', current: 1, max: 2, recharge: 'short' as const },
+      ];
+      const out = applyShortRestSlotRecovery(slots, resources, {
+        arcaneRecoverySlots: { 1: 1, 2: 1 },
+        harnessDivinePowerSlot: 1,
+      });
+
+      expect(out.spell_slots['level_1'].used).toBe(0);
+      expect(out.spell_slots['level_2'].used).toBe(0);
+      expect(out.class_resources.find((r) => r.name === 'Arcane Recovery')?.current).toBe(0);
+      expect(out.class_resources.find((r) => r.name === 'Channel Divinity')?.current).toBe(0);
+      // Original objects remain unmutated
+      expect(slots.level_1.used).toBe(2);
+      expect(resources[0].current).toBe(1);
+    });
+
+    it('does not consume recovery pools when target slots have no non-pact expended uses and isolates multiclass subclass fallback', () => {
+      const mcDruid = hero({
+        char_class: 'Fighter',
+        subclass: 'Highlander',
+        char_level: 7,
+        dnd_edition: '2014 Edition',
+        classes: [
+          { class_name: 'Fighter', subclass: 'Highlander', level: 3 },
+          { class_name: 'Druid', subclass: 'Circle of the Moon', level: 4 },
+        ],
+        class_resources: [{ name: 'Natural Recovery', current: 1, max: 1, recharge: 'long' }],
+      });
+      expect(shortRestRecoveryBudget(mcDruid, 'natural_recovery')).toBe(0);
+
+      // Only Pact slots spent (used: 2, pact_used: 2) -> must NOT consume Arcane Recovery or Channel Divinity
+      const pactOnlySlots = {
+        level_1: { max: 6, used: 2, pact_max: 2, pact_used: 2 },
+      };
+      const resources = [
+        { name: 'Arcane Recovery', current: 1, max: 1, recharge: 'long' as const },
+        { name: 'Channel Divinity', current: 1, max: 1, recharge: 'short' as const },
+      ];
+      const out = applyShortRestSlotRecovery(pactOnlySlots, resources, {
+        arcaneRecoverySlots: { 1: 1 },
+        harnessDivinePowerSlot: 1,
+      });
+      expect(out.spell_slots['level_1'].used).toBe(2);
+      expect(out.class_resources.find((r) => r.name === 'Arcane Recovery')?.current).toBe(1);
+      expect(out.class_resources.find((r) => r.name === 'Channel Divinity')?.current).toBe(1);
+
+      // Shared Warlock + Wizard slot level with regular AND Pact slots spent (used: 3, pact_used: 2):
+      // Arcane Recovery recovers only regular slot (used: 3 -> 2) without corrupting pact_used or pact.used
+      const mixedSlots = {
+        level_2: { max: 5, used: 3, pact_max: 2, pact_used: 2 },
+        pact: { max: 2, used: 2, level: 2 },
+      };
+      const mixedOut = applyShortRestSlotRecovery(mixedSlots, resources, {
+        arcaneRecoverySlots: { 2: 2 },
+      });
+      expect(mixedOut.spell_slots['level_2'].used).toBe(2);
+      expect(mixedOut.spell_slots['level_2'].pact_used).toBe(2);
+      expect(mixedOut.spell_slots['pact'].used).toBe(2);
+      expect(mixedOut.class_resources.find((r) => r.name === 'Arcane Recovery')?.current).toBe(0);
     });
   });
 });

@@ -7,7 +7,7 @@ import re
 import urllib.parse
 import uuid
 from functools import partial
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import (
     APIRouter,
@@ -43,6 +43,7 @@ from backend.services.rest_service import (
     is_deceased_by_exhaustion,
 )
 from backend.services.rules_service import parse_character_from_text
+from backend.services.stats_service import hydrate_character_spellcasting_and_resources
 from backend.utils.image_utils import (
     PORTRAIT_DIR,
     _secure_filename,
@@ -97,6 +98,7 @@ async def list_characters(
     async for doc in cursor:
         doc.pop("_id", None)
         try:
+            hydrate_character_spellcasting_and_resources(doc)
             characters.append(CharacterSchema.model_validate(doc, strict=False))
         except Exception as e:
             logger.warning("Skipping legacy character %s: %s", doc.get("char_name", "Unknown"), e)
@@ -237,6 +239,7 @@ async def get_character(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
     doc.pop("_id", None)
+    hydrate_character_spellcasting_and_resources(doc)
     return CharacterSchema.model_validate(doc, strict=False)
 
 
@@ -244,6 +247,9 @@ class ShortRestRequest(BaseModel):
     dice_to_spend: int = Field(default=0, ge=0, le=20)
     die_size: Optional[int] = Field(default=None, ge=4, le=12)
     hp_healed: int = Field(default=0, ge=0, le=2000)
+    arcane_recovery_slots: Dict[str, int] = Field(default_factory=dict)
+    natural_recovery_slots: Dict[str, int] = Field(default_factory=dict)
+    harness_divine_power_slot: Optional[int] = Field(default=None, ge=1, le=3)
     expected_version: Optional[int] = None
 
 
@@ -379,6 +385,9 @@ async def player_short_rest(
                 existing,
                 dice_to_spend=payload.dice_to_spend,
                 hp_healed=payload.hp_healed,
+                arcane_recovery_slots=payload.arcane_recovery_slots,
+                natural_recovery_slots=payload.natural_recovery_slots,
+                harness_divine_power_slot=payload.harness_divine_power_slot,
                 homebrew_content=homebrew_items,
             )
         )

@@ -2289,4 +2289,91 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
     fixture.destroy();
   });
+
+  it('recovers Arcane Recovery slots in Solo mode while ignoring manualHp when 0 Hit Dice are spent (#261)', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'wiz-solo-261',
+      char_class: 'Wizard',
+      char_level: 5,
+      classes: [{ class_name: 'Wizard', level: 5 }],
+      hp_max: 30,
+      hp_current: 15,
+      hit_dice: '5d6',
+      hit_dice_used: 0,
+      spell_slots: {
+        level_1: { max: 4, used: 2 },
+        level_2: { max: 3, used: 2 },
+      },
+      class_resources: [{ name: 'Arcane Recovery', current: 1, max: 1, recharge: 'long' }],
+      active_campaign: undefined,
+    });
+
+    comp.openShortRestModal();
+    comp.shortRestDiceToSpend = 0;
+    comp.shortRestManualHp = 99;
+    comp.shortRestArcaneRecovery = { 2: 1 };
+    comp.executeShortRest();
+
+    const updated = charState.activeCharacter()!;
+    expect(updated.hp_current).toBe(15); // 0 Hit Dice spent -> manualHp ignored
+    expect(updated.spell_slots?.['level_2']?.used).toBe(1);
+    expect(updated.class_resources?.find((r) => r.name === 'Arcane Recovery')?.current).toBe(0);
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
+
+  it('submits Harness Divine Power on campaign short rest and resets short-rest modal state on hero switch (#261)', () => {
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'cleric-camp-261',
+      char_class: 'Cleric',
+      char_level: 5,
+      proficiency_bonus: 3,
+      hp_max: 38,
+      hp_current: 28,
+      hit_dice: '5d8',
+      spell_slots: { level_2: { max: 3, used: 2 } },
+      class_resources: [{ name: 'Channel Divinity', current: 1, max: 2, recharge: 'short' }],
+      active_campaign: 'Frostmarch',
+      dm_short_rest_unlocked: true,
+      version: 4,
+    });
+
+    comp.openShortRestModal();
+    expect(comp.showShortRestModal()).toBe(true);
+    comp.shortRestDiceToSpend = 0;
+    comp.shortRestHarnessSlot = 2;
+    comp.executeShortRest();
+
+    const restReq = http.expectOne((r) => r.url.includes('/characters/cleric-camp-261/short-rest'));
+    expect(restReq.request.method).toBe('POST');
+    expect(restReq.request.body).toEqual(
+      expect.objectContaining({
+        dice_to_spend: 0,
+        harness_divine_power_slot: 2,
+        expected_version: 4,
+      })
+    );
+    restReq.flush({ ...charState.activeCharacter()!, dm_short_rest_unlocked: false, version: 5 });
+    expect(comp.showShortRestModal()).toBe(false);
+
+    // Switching hero closes & resets pending short rest state
+    comp.openShortRestModal();
+    comp.shortRestHarnessSlot = 1;
+    comp.shortRestManualHp = 12;
+    fixture.detectChanges();
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'other-hero-261',
+      char_name: 'Kaelen',
+      active_campaign: undefined,
+    });
+    fixture.detectChanges();
+    expect(comp.showShortRestModal()).toBe(false);
+    expect(comp.shortRestHarnessSlot).toBeNull();
+    expect(comp.shortRestManualHp).toBeNull();
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
 });

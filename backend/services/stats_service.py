@@ -138,6 +138,8 @@ _DERIVED_CHARACTER_KEYS = (
     "spell_save_dc",
     "spell_attack_bonus",
     "spell_slots",
+    "always_prepared_spells",
+    "max_prepared_spells",
     "hit_dice",
     "initiative_modifier",
     "initiative_bonus",
@@ -984,6 +986,391 @@ def get_base_weapon(name: str, all_weapons: list) -> dict:
     return weapon_data
 
 
+_2024_PREPARED_TABLES: Dict[str, tuple[int, ...]] = {
+    "wizard": (4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 18, 19, 21, 22, 23, 24, 25),
+    "cleric": (4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22),
+    "druid": (4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22),
+    "bard": (4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22),
+    "sorcerer": (4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22),
+    "warlock": (2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15),
+    "paladin": (2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15),
+    "ranger": (2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15),
+    "artificer": (2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15),
+    "eldritch_knight": (0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13),
+    "arcane_trickster": (0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13),
+}
+
+
+def _extract_spell_name(item: Any) -> str:
+    if isinstance(item, dict):
+        raw = item.get("name") or item.get("spell_name") or ""
+    elif item is None:
+        raw = ""
+    else:
+        raw = str(item)
+    return str(raw).strip()
+
+
+def _norm_spell_key(name: str) -> str:
+    return str(name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
+
+
+def calculate_max_prepared_spells(
+    classes: List[Dict[str, Any]],
+    char_class: Optional[str],
+    subclass: Optional[str],
+    level: int,
+    stats: Dict[str, Any],
+    edition: str,
+) -> Optional[int]:
+    """Compute edition-aware total daily prepared spell limit across classes (None for non-prepared builds)."""
+    is_2024 = "2024" in str(edition or "")
+    entries = [
+        (
+            str(c.get("class_name") or "").strip().lower(),
+            str(
+                c.get("subclass")
+                or (
+                    subclass
+                    if str(c.get("class_name") or "").strip().lower()
+                    == str(char_class or "").strip().lower()
+                    else ""
+                )
+            )
+            .strip()
+            .lower(),
+            max(1, min(20, int(c.get("level") or 1))),
+        )
+        for c in (classes or [])
+        if isinstance(c, dict) and c.get("class_name")
+    ]
+    if not entries and char_class:
+        entries = [
+            (
+                str(char_class).strip().lower(),
+                str(subclass or "").strip().lower(),
+                max(1, min(20, int(level or 1))),
+            )
+        ]
+
+    int_mod = get_modifier((stats or {}).get("INT", 10))
+    wis_mod = get_modifier((stats or {}).get("WIS", 10))
+    cha_mod = get_modifier((stats or {}).get("CHA", 10))
+
+    total = 0
+    has_prepared_caster = False
+    for cname, sub_low, clvl in entries:
+        if is_2024:
+            if cname in _2024_PREPARED_TABLES:
+                total += _2024_PREPARED_TABLES[cname][clvl - 1]
+                has_prepared_caster = True
+            elif cname == "fighter" and "eldritch knight" in sub_low and clvl >= 3:
+                total += _2024_PREPARED_TABLES["eldritch_knight"][clvl - 1]
+                has_prepared_caster = True
+            elif cname == "rogue" and "arcane trickster" in sub_low and clvl >= 3:
+                total += _2024_PREPARED_TABLES["arcane_trickster"][clvl - 1]
+                has_prepared_caster = True
+        else:
+            if cname in ("cleric", "druid"):
+                total += max(1, clvl + wis_mod)
+                has_prepared_caster = True
+            elif cname == "wizard":
+                total += max(1, clvl + int_mod)
+                has_prepared_caster = True
+            elif cname == "paladin" and clvl >= 2:
+                total += max(1, (clvl // 2) + cha_mod)
+                has_prepared_caster = True
+            elif cname == "artificer":
+                total += max(1, (clvl // 2) + int_mod)
+                has_prepared_caster = True
+
+    return total if has_prepared_caster else None
+
+
+def collect_always_prepared_spells(
+    char_data: Dict[str, Any],
+    classes: List[Dict[str, Any]],
+    char_class: Optional[str],
+    subclass: Optional[str],
+    level: int,
+    edition: str,
+    repo: Any,
+) -> List[str]:
+    """Collect unlocked leveled subclass bonus spells and racial innate/lineage spells."""
+    sub_entries = [
+        (
+            str(c.get("class_name") or "").strip(),
+            str(
+                c.get("subclass")
+                or (
+                    subclass
+                    if str(c.get("class_name") or "").strip().lower()
+                    == str(char_class or "").strip().lower()
+                    else ""
+                )
+            ).strip(),
+            int(c.get("level") or 1),
+        )
+        for c in (classes or [])
+        if isinstance(c, dict) and c.get("class_name")
+    ]
+    if not sub_entries and char_class:
+        sub_entries = [(str(char_class).strip(), str(subclass or "").strip(), int(level or 1))]
+
+    all_ed_spells = repo.get_all_spells(edition) or []
+    spell_lookup = {
+        _norm_spell_key(sp.get("name")): (
+            str(sp.get("name") or "").strip(),
+            int(sp["level"]) if sp.get("level") is not None else 1,
+        )
+        for sp in all_ed_spells
+        if isinstance(sp, dict) and sp.get("name")
+    }
+
+    collected: List[str] = []
+    seen: set[str] = set()
+
+    def _add_if_leveled(raw_sp: Any) -> None:
+        raw_name = _extract_spell_name(raw_sp)
+        if not raw_name:
+            return
+        norm = _norm_spell_key(raw_name)
+        canon, sp_lvl = spell_lookup.get(norm, (raw_name, 1))
+        if sp_lvl <= 0:
+            return
+        canon_key = _norm_spell_key(canon)
+        if canon_key not in seen:
+            seen.add(canon_key)
+            collected.append(canon)
+
+    is_2024 = "2024" in str(edition or "")
+    for sc_cls, sc_sub, sc_lvl in sub_entries:
+        cls_low = sc_cls.lower()
+        if is_2024:
+            if cls_low == "ranger" and sc_lvl >= 1:
+                _add_if_leveled("Hunter's Mark")
+            elif cls_low == "paladin" and sc_lvl >= 2:
+                _add_if_leveled("Divine Smite")
+            if cls_low == "paladin" and sc_lvl >= 5:
+                _add_if_leveled("Find Steed")
+            if cls_low == "bard" and sc_lvl >= 20:
+                _add_if_leveled("Power Word Heal")
+                _add_if_leveled("Power Word Kill")
+        if not sc_cls or not sc_sub:
+            continue
+        sc_entry = repo.get_subclass_entry(sc_cls, sc_sub, edition) or {}
+        for req_str, sp_list in (sc_entry.get("bonus_spells") or {}).items():
+            try:
+                req_lvl = int(req_str)
+            except (TypeError, ValueError):
+                continue
+            if sc_lvl >= req_lvl:
+                for sp in sp_list or []:
+                    _add_if_leveled(sp)
+
+    char_total_level = max(1, int(level or char_data.get("char_level") or 1))
+    race_name = str(char_data.get("race") or "").strip()
+    race_data = repo.get_race_data(race_name, edition) if race_name else None
+    if race_name and not (
+        isinstance((race_data or {}).get("innate_spells"), dict)
+        or isinstance((race_data or {}).get("lineage_spells"), dict)
+    ):
+        race_data = repo.get_race_data(race_name, "2014")
+
+    def _collect_innate_block(block: Any) -> None:
+        if not isinstance(block, dict):
+            return
+        by_lvl = block.get("by_level")
+        if isinstance(by_lvl, dict):
+            for lvl_k, sp_names in by_lvl.items():
+                try:
+                    req_l = int(lvl_k)
+                except (TypeError, ValueError):
+                    continue
+                if char_total_level >= req_l and isinstance(sp_names, list):
+                    for raw_sp in sp_names:
+                        _add_if_leveled(raw_sp)
+        for k, val in block.items():
+            if (k == "always" or str(k).startswith("level_") or str(k).isdigit()) and isinstance(
+                val, list
+            ):
+                for raw_sp in val:
+                    _add_if_leveled(raw_sp)
+
+    if isinstance((race_data or {}).get("innate_spells"), dict):
+        _collect_innate_block(race_data["innate_spells"])
+
+    lineage_map = (race_data or {}).get("lineage_spells")
+    if isinstance(lineage_map, dict) and lineage_map:
+        sorted_lineages = [
+            (lin_key, blk)
+            for lin_key, blk in sorted(lineage_map.items(), key=lambda kv: len(kv[0]), reverse=True)
+            if lin_key != "_default" and isinstance(blk, dict)
+        ]
+
+        def _match_lineage_text(text: str) -> dict | None:
+            lowered = text.lower()
+            return next(
+                (blk for lin_key, blk in sorted_lineages if lin_key.lower() in lowered),
+                None,
+            )
+
+        matched_lineage = _match_lineage_text(race_name)
+        if matched_lineage is None:
+            trait_names = " ".join(
+                f.get("name", "") if isinstance(f, dict) else str(f or "").split(":", 1)[0]
+                for f in (char_data.get("features_traits") or [])
+            )
+            matched_lineage = _match_lineage_text(trait_names)
+        if matched_lineage is None:
+            for feat in char_data.get("features_traits") or []:
+                desc = (
+                    (feat.get("description") or "") if isinstance(feat, dict) else str(feat or "")
+                ).lower()
+                if not desc or "choose " in desc:
+                    continue
+                hits = [blk for lin_key, blk in sorted_lineages if lin_key.lower() in desc]
+                if len({tuple(sorted((str(k), str(v)) for k, v in b.items())) for b in hits}) == 1:
+                    matched_lineage = hits[0]
+                    break
+        if matched_lineage is None:
+            matched_lineage = lineage_map.get("_default")
+        if isinstance(matched_lineage, dict):
+            _collect_innate_block(matched_lineage)
+
+    return collected
+
+
+def cap_prepared_leveled_spells(
+    char_data: Dict[str, Any], edition: str, repo: Any = None
+) -> List[str]:
+    """Keep cantrips and always-prepared spells intact while capping daily prepared leveled spells."""
+    if repo is None:
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+    classes = char_data.get("classes") or []
+    char_class = char_data.get("char_class")
+    subclass = char_data.get("subclass")
+    level = int(char_data.get("char_level") or 1)
+    stats = char_data.get("stats") or {}
+
+    prep_cap = calculate_max_prepared_spells(
+        classes=classes,
+        char_class=char_class,
+        subclass=subclass,
+        level=level,
+        stats=stats,
+        edition=edition,
+    )
+    existing_prep = list(char_data.get("prepared_spells") or [])
+    if prep_cap is None:
+        return existing_prep
+
+    always_keys = {
+        _norm_spell_key(s)
+        for s in collect_always_prepared_spells(
+            char_data=char_data,
+            classes=classes,
+            char_class=char_class,
+            subclass=subclass,
+            level=level,
+            edition=edition,
+            repo=repo,
+        )
+    }
+    spells_dict = char_data.get("spells") or {}
+    cantrip_keys = {
+        _norm_spell_key(_extract_spell_name(c))
+        for c in (spells_dict.get("cantrips") if isinstance(spells_dict, dict) else []) or []
+    }
+    for sp in repo.get_all_spells(edition) or []:
+        if isinstance(sp, dict) and sp.get("name") and int(sp.get("level") or 0) == 0:
+            cantrip_keys.add(_norm_spell_key(sp["name"]))
+    cantrip_keys.discard("")
+
+    capped: List[str] = []
+    seen_all: set[str] = set()
+    leveled_kept = 0
+    for raw in existing_prep:
+        name = _extract_spell_name(raw)
+        key = _norm_spell_key(name)
+        if not key or key in seen_all:
+            continue
+        if key in cantrip_keys or key in always_keys:
+            capped.append(name)
+            seen_all.add(key)
+            continue
+        if leveled_kept >= prep_cap:
+            continue
+        capped.append(name)
+        seen_all.add(key)
+        leveled_kept += 1
+
+    char_data["prepared_spells"] = capped
+    return capped
+
+
+def hydrate_character_spellcasting_and_resources(
+    char_data: Dict[str, Any], repo: Any = None
+) -> Dict[str, Any]:
+    """Hydrate missing #261 spellcasting/resource fields on legacy DB docs without mutating existing resource counts."""
+    if not isinstance(char_data, dict):
+        return char_data
+    if repo is None:
+        from backend.repositories.rules_repository import RulesRepository
+
+        repo = RulesRepository()
+    from backend.services.class_resources_service import sync_class_resources
+
+    edition = str(
+        char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
+    )
+    classes = char_data.get("classes") or []
+    char_class = char_data.get("char_class") or char_data.get("class_name")
+    subclass = char_data.get("subclass")
+    level = int(char_data.get("char_level") or 1)
+    stats = char_data.get("stats") or {}
+    if not classes and char_class:
+        classes = [{"class_name": char_class, "level": level, "subclass": subclass}]
+
+    if char_data.get("max_prepared_spells") is None:
+        char_data["max_prepared_spells"] = calculate_max_prepared_spells(
+            classes=classes,
+            char_class=char_class,
+            subclass=subclass,
+            level=level,
+            stats=stats,
+            edition=edition,
+        )
+    if not char_data.get("always_prepared_spells"):
+        char_data["always_prepared_spells"] = collect_always_prepared_spells(
+            char_data=char_data,
+            classes=classes,
+            char_class=char_class,
+            subclass=subclass,
+            level=level,
+            edition=edition,
+            repo=repo,
+        )
+    current_resources = [
+        r.model_dump() if hasattr(r, "model_dump") else r
+        for r in (char_data.get("class_resources") or [])
+    ]
+    char_data["class_resources"] = sync_class_resources(
+        current_resources,
+        classes,
+        stats,
+        edition,
+        race=char_data.get("race"),
+        total_level=level,
+        subclass=subclass,
+        features_traits=char_data.get("features_traits"),
+        char_class=char_class,
+    )
+    return char_data
+
+
 def restore_base_hp_max(
     existing_hp: Optional[int],
     stored_base_hp_max: Optional[int],
@@ -1383,7 +1770,7 @@ def sync_character_stats(
     level = sum(c.get("level", 1) for c in classes)
     char_data["char_level"] = level
 
-    edition = char_data.get("dnd_edition", "2014 Edition")
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
     char_class = classes[0].get("class_name", "Fighter")
     subclass = classes[0].get("subclass") or char_data.get("subclass")
 
@@ -1625,7 +2012,11 @@ def sync_character_stats(
             )
         ]
 
-    is_2024 = "2024" in str(edition) or "2024" in str(char_data.get("dnd_edition", ""))
+    is_2024 = (
+        "2024" in str(edition)
+        or "2024" in str(char_data.get("dnd_edition") or "")
+        or "2024" in str(char_data.get("ruleset_version") or "")
+    )
     if is_2024:
         # Filter out legacy 2014 background combat/roleplay traits early
         legacy_bg_features = {
@@ -2876,53 +3267,18 @@ def sync_character_stats(
 
         # Exempt unlocked subclass bonus spells (e.g. Wild Heart L10 Commune with Nature,
         # Psi Warrior L18 Telekinesis) from max_spell_level hallucination stripping.
-        exempt_subclass_spells: set[str] = set()
-        _sub_check_entries = [
-            (
-                str(c.get("class_name") or "").strip(),
-                str(
-                    c.get("subclass")
-                    or (
-                        subclass
-                        if str(c.get("class_name") or "").strip().lower()
-                        == str(char_class or "").strip().lower()
-                        else ""
-                    )
-                ).strip(),
-                int(c.get("level") or 1),
+        exempt_subclass_spells = {
+            _norm_spell_key(sp)
+            for sp in collect_always_prepared_spells(
+                char_data=char_data,
+                classes=classes,
+                char_class=char_class,
+                subclass=subclass,
+                level=level,
+                edition=edition,
+                repo=repo,
             )
-            for c in (classes or [])
-            if isinstance(c, dict) and c.get("class_name")
-        ]
-        if not _sub_check_entries and char_class:
-            _sub_check_entries = [(str(char_class).strip(), str(subclass or "").strip(), level)]
-
-        def _extract_spell_name(item: Any) -> str:
-            if isinstance(item, dict):
-                raw = item.get("name") or item.get("spell_name") or ""
-            elif item is None:
-                raw = ""
-            else:
-                raw = str(item)
-            return str(raw).strip()
-
-        def _norm_spell_key(name: str) -> str:
-            return str(name or "").strip().lower().replace("\u2019", "'").replace("\u2018", "'")
-
-        for _sc_cls, _sc_sub, _sc_lvl in _sub_check_entries:
-            if not _sc_cls or not _sc_sub:
-                continue
-            _sc_entry = repo.get_subclass_entry(_sc_cls, _sc_sub, edition) or {}
-            for _req_str, _sp_list in (_sc_entry.get("bonus_spells") or {}).items():
-                try:
-                    _req_lvl = int(_req_str)
-                except (TypeError, ValueError):
-                    continue
-                if _sc_lvl >= _req_lvl:
-                    for _sp in _sp_list or []:
-                        _sp_norm = _norm_spell_key(_extract_spell_name(_sp))
-                        if _sp_norm:
-                            exempt_subclass_spells.add(_sp_norm)
+        }
 
         for i in range(max_spell_level + 1, 10):
             lvl_key = f"level_{i}"
@@ -2956,6 +3312,25 @@ def sync_character_stats(
                 for ps in char_data["prepared_spells"]
                 if _norm_spell_key(_extract_spell_name(ps)) in valid_spell_names
             ]
+
+    char_data["max_prepared_spells"] = calculate_max_prepared_spells(
+        classes=classes,
+        char_class=char_class,
+        subclass=subclass,
+        level=level,
+        stats=stats,
+        edition=edition,
+    )
+    always_prepared = collect_always_prepared_spells(
+        char_data=char_data,
+        classes=classes,
+        char_class=char_class,
+        subclass=subclass,
+        level=level,
+        edition=edition,
+        repo=repo,
+    )
+    char_data["always_prepared_spells"] = always_prepared
 
     rogue_level = 0
     for cls in classes:
@@ -3101,7 +3476,9 @@ def sync_character_stats(
                 "ray of frost",
                 "shocking grasp",
             }
-            edition_val = char_data.get("dnd_edition") or "2014 Edition"
+            edition_val = (
+                char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
+            )
             known_cantrips_lower = (
                 set(_get_known_cantrips_for_edition(edition_val)) | undeniable_cantrips
             )
@@ -3263,6 +3640,9 @@ def sync_character_stats(
         edition,
         race=char_data.get("race"),
         total_level=level,
+        subclass=char_data.get("subclass"),
+        features_traits=char_data.get("features_traits"),
+        char_class=char_class,
     )
 
     if effective_exh >= 6:

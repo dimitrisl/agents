@@ -2,9 +2,9 @@
   <p class="mb-4 text-body text-muted">Spend Hit Dice during a 1-hour rest to recover lost Hit Points.</p>
 
   <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-    <div class="rounded-lg border border-hairline bg-black/20 p-3"><span class="block text-label text-muted">🎲 Hit Die Size</span><strong>d{{ selectedDieSize || classHitDieSize }}</strong></div>
-    <div class="rounded-lg border border-hairline bg-black/20 p-3"><span class="block text-label text-muted">⚡ CON Modifier bonus per die</span><strong>{{ conModifier >= 0 ? '+' + conModifier : conModifier }}</strong></div>
-    <div class="rounded-lg border border-hairline bg-black/20 p-3"><span class="block text-label text-muted">❤️ Available Hit Dice</span><strong>{{ availableHitDice }} / {{ characterLevel }}</strong></div>
+    <div class="rounded-lg border border-hairline bg-panel p-3"><span class="block text-label text-muted">🎲 Hit Die Size</span><strong>d{{ selectedDieSize || classHitDieSize }}</strong></div>
+    <div class="rounded-lg border border-hairline bg-panel p-3"><span class="block text-label text-muted">⚡ CON Modifier bonus per die</span><strong>{{ conModifier >= 0 ? '+' + conModifier : conModifier }}</strong></div>
+    <div class="rounded-lg border border-hairline bg-panel p-3"><span class="block text-label text-muted">❤️ Available Hit Dice</span><strong>{{ availableHitDice }} / {{ characterLevel }}</strong></div>
   </div>
 
   <div *ngIf="hitDieOptions && hitDieOptions.length > 1" class="mt-4">
@@ -24,10 +24,10 @@
 
   <div *ngIf="availableHitDice > 0" class="mt-4">
     <label for="short-rest-dice" class="mb-1 block text-label font-semibold text-muted">Number of Hit Dice to Spend:</label>
-    <input forgeInput id="short-rest-dice" type="number" [(ngModel)]="shortRestDiceToSpend" (ngModelChange)="shortRestDiceToSpendChange.emit($event)" [min]="hasPactSlots ? 0 : 1" [max]="selectedClassMaxDice" />
+    <input forgeInput id="short-rest-dice" type="number" [(ngModel)]="shortRestDiceToSpend" (ngModelChange)="shortRestDiceToSpendChange.emit($event)" [min]="canRecoverWithoutDice ? 0 : 1" [max]="selectedClassMaxDice" />
   </div>
 
-  <div *ngIf="availableHitDice > 0" class="mt-4">
+  <div *ngIf="availableHitDice > 0 && shortRestDiceToSpend > 0" class="mt-4">
     <label for="short-rest-manual-hp" class="mb-1 block text-label font-semibold text-muted">
       Manual Physical HP Rolled (optional):
     </label>
@@ -48,12 +48,132 @@
 
   <div *ngIf="availableHitDice === 0" class="mt-4 rounded-lg border border-red/40 bg-red/10 p-3 text-body text-red">
     ⚠️ You have no available Hit Dice remaining! Take a Long Rest to recover Hit Dice.
+    @if (canRecoverWithoutDice) {
+      <span class="mt-1 block text-label text-ink/90">You can still take this Short Rest to recover eligible spell slots.</span>
+    }
   </div>
+
+  @for (sec of recoverySections; track sec.kind) {
+    <div class="mt-4 rounded-lg border border-hairline bg-panel p-3">
+      <div class="flex items-center justify-between gap-2">
+        <strong class="text-body text-accent">{{ sec.title }}</strong>
+        <forge-badge tone="accent" size="sm">
+          {{ sec.spent }} / {{ sec.budget }} slot levels
+        </forge-badge>
+      </div>
+      <p class="mt-1 text-label text-muted">
+        Recover expended 1st–5th level spell slots whose combined levels do not exceed {{ sec.budget }}.
+      </p>
+      @if (!hasExpendedSlots(5)) {
+        <p class="mt-2 text-label italic text-muted">No expended 1st–5th level spell slots to recover.</p>
+      } @else {
+        <div class="mt-2 divide-y divide-hairline">
+          @for (lvl of recoveryLevels; track lvl) {
+            @if (expendedCount(lvl) > 0 || recoveryCount(sec.kind, lvl) > 0) {
+              <div class="flex items-center justify-between py-2 first:pt-0 last:pb-0">
+                <div>
+                  <span class="text-label font-semibold text-ink">Level {{ lvl }}</span>
+                  <span class="ml-1.5 text-micro text-muted">({{ expendedCount(lvl) }} used)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    iconOnly
+                    type="button"
+                    [attr.aria-label]="'Decrease Level ' + lvl + ' slots for ' + sec.title"
+                    [disabled]="recoveryCount(sec.kind, lvl) <= 0"
+                    (click)="adjustRecovery(sec.kind, lvl, -1)"
+                  >
+                    <forge-icon name="minus" size="xs" />
+                  </button>
+                  <span class="min-w-5 text-center text-body font-bold tabular-nums text-ink">
+                    {{ recoveryCount(sec.kind, lvl) }}
+                  </span>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    iconOnly
+                    type="button"
+                    [attr.aria-label]="'Increase Level ' + lvl + ' slots for ' + sec.title"
+                    [disabled]="!canIncrementRecovery(sec.kind, lvl)"
+                    (click)="adjustRecovery(sec.kind, lvl, 1)"
+                  >
+                    <forge-icon name="plus" size="xs" />
+                  </button>
+                </div>
+              </div>
+            }
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (harnessMaxSlotLevel > 0) {
+    <div class="mt-4 rounded-lg border border-hairline bg-panel p-3">
+      <div class="flex items-center justify-between gap-2">
+        <strong class="text-body text-cobalt">✨ Harness Divine Power</strong>
+        <forge-badge tone="muted" size="sm">
+          1 Channel Divinity · Max Level {{ harnessMaxSlotLevel }}
+        </forge-badge>
+      </div>
+      <p class="mt-1 text-label text-muted">
+        Expend 1 Channel Divinity use to regain one expended spell slot of level {{ harnessMaxSlotLevel }} or lower.
+      </p>
+      @if (!hasExpendedSlots(harnessMaxSlotLevel)) {
+        <p class="mt-2 text-label italic text-muted">
+          No expended Level 1–{{ harnessMaxSlotLevel }} spell slots to recover.
+        </p>
+      } @else {
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          @for (lvl of harnessLevels; track lvl) {
+            @if (expendedCount(lvl) > 0 || harnessDivinePowerSlot === lvl) {
+              <button
+                forgeButton
+                variant="secondary"
+                [tone]="harnessDivinePowerSlot === lvl ? 'accent' : undefined"
+                size="sm"
+                type="button"
+                [disabled]="!canSelectHarnessSlot(lvl)"
+                (click)="selectHarnessSlot(lvl)"
+              >
+                Level {{ lvl }} ({{ expendedCount(lvl) }} used)
+              </button>
+            }
+          }
+          @if (harnessDivinePowerSlot !== null) {
+            <button
+              forgeButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              (click)="selectHarnessSlot(null)"
+            >Clear</button>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  @if (recoveryBudgetInvalid) {
+    <div class="mt-4 rounded-lg border border-red/40 bg-red/10 p-3 text-body text-red">
+      ⚠️ Selected spell slot recovery exceeds your recovery budget or expended slots.
+    </div>
+  }
 
   <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
     <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
-    <button *ngIf="availableHitDice > 0 || hasPactSlots" forgeButton variant="primary" type="button" (click)="executeShortRest.emit()">
-      {{ availableHitDice > 0 ? '⛺ Spend Hit Dice & Heal' : '⛺ Take Short Rest (Recover Pact Slots)' }}
+    <button
+      *ngIf="(availableHitDice > 0 || canRecoverWithoutDice) && !recoveryBudgetInvalid"
+      forgeButton
+      variant="primary"
+      type="button"
+      (click)="executeShortRest.emit()"
+    >
+      {{ primaryActionLabel }}
     </button>
   </div>
 </forge-modal>

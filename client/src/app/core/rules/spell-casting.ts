@@ -9,6 +9,9 @@
  * guessed — the cast still spends its slot and just shows no roll.
  */
 
+import { CharacterSchema } from '../models/character.model';
+import { abilityModifierOf, is2024Edition } from './ability';
+
 export type SaveAbility = 'STR' | 'DEX' | 'CON' | 'INT' | 'WIS' | 'CHA';
 
 export interface SpellRulesText {
@@ -19,6 +22,7 @@ export interface SpellRulesText {
   duration?: string;
   /** 2014 data stores "True"/"False", 2024 data stores booleans. */
   concentration?: boolean | string | null;
+  ritual?: boolean | string | null;
 }
 
 export interface SpellCastProfile {
@@ -47,6 +51,8 @@ export interface SpellCastProfile {
   rollsOnCast: boolean;
   /** Casting it starts concentration (and ends any other: only one at a time). */
   concentration: boolean;
+  /** Spell has the ritual tag and can be cast in +10 minutes without spending a slot when eligible. */
+  ritual: boolean;
 }
 
 const ABILITIES: Record<string, SaveAbility> = {
@@ -102,6 +108,7 @@ export function analyzeSpell(spell: SpellRulesText): SpellCastProfile {
     rollsOnCast: spellAttack || !!save || healing || instantaneous,
     concentration:
       String(spell.concentration).toLowerCase() === 'true' || /concentration/i.test(spell.duration || ''),
+    ritual: spell.ritual === true || String(spell.ritual).toLowerCase() === 'true',
   };
 }
 
@@ -133,4 +140,301 @@ export function diceForCast(profile: SpellCastProfile, slotLevel: number, charac
 
   const flat = profile.flatBonus * instances;
   return `${diceCount}d${sides}${flat ? `+${flat}` : ''}${extra}`;
+}
+
+export const RITUAL_SPELLS_2014 = new Set([
+  'alarm',
+  'animal messenger',
+  'augury',
+  'beast sense',
+  'commune',
+  'commune with nature',
+  'comprehend languages',
+  'contact other plane',
+  'detect magic',
+  'detect poison and disease',
+  'divination',
+  'feign death',
+  'find familiar',
+  'floating disk',
+  'forbiddance',
+  'gentle repose',
+  'identify',
+  'illusory script',
+  'instant summons',
+  'locate animals or plants',
+  'magic mouth',
+  'meld into stone',
+  'phantom steed',
+  'purify food and drink',
+  'silence',
+  'skywrite',
+  'speak with animals',
+  'telepathic bond',
+  'tiny hut',
+  'unseen servant',
+  'water breathing',
+  'water walk',
+]);
+
+export const RITUAL_SPELLS_2024 = new Set([
+  'alarm',
+  'animal messenger',
+  'augury',
+  'beast sense',
+  'commune',
+  'commune with nature',
+  'comprehend languages',
+  'contact other plane',
+  'detect magic',
+  'detect poison and disease',
+  'divination',
+  'find familiar',
+  'floating disk',
+  'forbiddance',
+  'gentle repose',
+  'identify',
+  'illusory script',
+  'instant summons',
+  'locate animals or plants',
+  'magic mouth',
+  'meld into stone',
+  'phantom steed',
+  'purify food and drink',
+  'silence',
+  'speak with animals',
+  'telepathic bond',
+  'tiny hut',
+  'unseen servant',
+  'water breathing',
+  'water walk',
+]);
+
+const PREPARED_2024_TABLES: Record<string, number[]> = {
+  wizard: [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 18, 19, 21, 22, 23, 24, 25],
+  cleric: [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22],
+  druid: [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22],
+  bard: [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22],
+  sorcerer: [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22],
+  warlock: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
+  paladin: [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15],
+  ranger: [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15],
+  artificer: [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15],
+  eldritch_knight: [0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13],
+  arcane_trickster: [0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13],
+};
+
+export function normalizeSpellKey(name: string | null | undefined): string {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'");
+}
+
+export function isAlwaysPreparedSpell(
+  char: CharacterSchema | null | undefined,
+  spellName: string
+): boolean {
+  const key = normalizeSpellKey(spellName);
+  if (!key || !char?.always_prepared_spells?.length) return false;
+  return char.always_prepared_spells.some((s) => normalizeSpellKey(s) === key);
+}
+
+export function maxPreparedSpells(char: CharacterSchema | null | undefined): number | null {
+  if (!char) return null;
+  if (typeof char.max_prepared_spells === 'number') {
+    return char.max_prepared_spells;
+  }
+
+  const is2024 = is2024Edition(char);
+  const entries =
+    char.classes && char.classes.length > 0
+      ? char.classes.map((c) => ({
+          name: (c.class_name || '').trim().toLowerCase(),
+          subclass: (
+            c.subclass ||
+            ((c.class_name || '').trim().toLowerCase() === (char.char_class || '').trim().toLowerCase()
+              ? char.subclass
+              : '') ||
+            ''
+          )
+            .trim()
+            .toLowerCase(),
+          level: Math.max(1, Math.min(20, Number(c.level || 1))),
+        }))
+      : char.char_class
+        ? [
+            {
+              name: char.char_class.trim().toLowerCase(),
+              subclass: (char.subclass || '').trim().toLowerCase(),
+              level: Math.max(1, Math.min(20, Number(char.char_level || 1))),
+            },
+          ]
+        : [];
+
+  const intMod = abilityModifierOf(char, 'INT');
+  const wisMod = abilityModifierOf(char, 'WIS');
+  const chaMod = abilityModifierOf(char, 'CHA');
+
+  let total = 0;
+  let hasPrepared = false;
+  for (const cls of entries) {
+    if (is2024) {
+      if (cls.name in PREPARED_2024_TABLES) {
+        total += PREPARED_2024_TABLES[cls.name][cls.level - 1];
+        hasPrepared = true;
+      } else if (cls.name === 'fighter' && cls.subclass.includes('eldritch knight') && cls.level >= 3) {
+        total += PREPARED_2024_TABLES['eldritch_knight'][cls.level - 1];
+        hasPrepared = true;
+      } else if (cls.name === 'rogue' && cls.subclass.includes('arcane trickster') && cls.level >= 3) {
+        total += PREPARED_2024_TABLES['arcane_trickster'][cls.level - 1];
+        hasPrepared = true;
+      }
+    } else {
+      if (cls.name === 'cleric' || cls.name === 'druid') {
+        total += Math.max(1, cls.level + wisMod);
+        hasPrepared = true;
+      } else if (cls.name === 'wizard') {
+        total += Math.max(1, cls.level + intMod);
+        hasPrepared = true;
+      } else if (cls.name === 'paladin' && cls.level >= 2) {
+        total += Math.max(1, Math.floor(cls.level / 2) + chaMod);
+        hasPrepared = true;
+      } else if (cls.name === 'artificer') {
+        total += Math.max(1, Math.floor(cls.level / 2) + intMod);
+        hasPrepared = true;
+      }
+    }
+  }
+
+  return hasPrepared ? total : null;
+}
+
+/** Counts daily prepared leveled spells excluding cantrips and locked always-prepared spells. */
+export function preparedSpellsCount(char: CharacterSchema | null | undefined): number {
+  if (!char?.prepared_spells?.length) return 0;
+  const cantrips = new Set((char.spells?.cantrips || []).map((s) => normalizeSpellKey(s)));
+  const always = new Set((char.always_prepared_spells || []).map((s) => normalizeSpellKey(s)));
+  const unique = new Set<string>();
+  for (const s of char.prepared_spells) {
+    const key = normalizeSpellKey(s);
+    if (!key || cantrips.has(key) || always.has(key)) continue;
+    unique.add(key);
+  }
+  return unique.size;
+}
+
+const EPONYMOUS_RITUAL_PREFIXES = [
+  "leomund's ",
+  "tenser's ",
+  "rary's ",
+  "drawmij's ",
+  "melan's ",
+  "otto's ",
+];
+
+export function normalizeRitualLookupKey(name: string | null | undefined): string {
+  const key = normalizeSpellKey(name);
+  if (!key) return '';
+  if (RITUAL_SPELLS_2014.has(key) || RITUAL_SPELLS_2024.has(key)) return key;
+  for (const prefix of EPONYMOUS_RITUAL_PREFIXES) {
+    if (key.startsWith(prefix)) {
+      const stripped = key.slice(prefix.length).trim();
+      if (RITUAL_SPELLS_2014.has(stripped) || RITUAL_SPELLS_2024.has(stripped)) {
+        return stripped;
+      }
+    }
+  }
+  return key;
+}
+
+export function isRitualSpell(
+  spellName: string,
+  edition?: string | null,
+  profile?: SpellCastProfile | null
+): boolean {
+  if (profile) return !!profile.ritual;
+  const key = normalizeRitualLookupKey(spellName);
+  if (!key) return false;
+  return String(edition || '').includes('2024')
+    ? RITUAL_SPELLS_2024.has(key)
+    : RITUAL_SPELLS_2014.has(key);
+}
+
+/**
+ * Checks D&D 5e (2014) vs 2024 Revision eligibility to cast `spellName` as a Ritual:
+ * - Always requires the spell to carry the Ritual tag (and not be a cantrip).
+ * - 2024 PHB: any character with the spell prepared/always-prepared can cast it as a ritual;
+ *   Wizard (*Ritual Adept*), *Ritual Caster*, or *Book of Ancient Secrets* can also cast directly from the spellbook.
+ * - 2014 PHB: Wizard casts from spellbook even if unprepared; Bard casts from known spells;
+ *   Cleric / Druid / Artificer must have it prepared; *Ritual Caster* / *Book of Ancient Secrets* grants ritual casting for known/scribed rituals.
+ */
+export function canCastAsRitual(
+  char: CharacterSchema | null | undefined,
+  spellName: string,
+  profile?: SpellCastProfile | null
+): boolean {
+  if (!char || !isRitualSpell(spellName, char.dnd_edition, profile)) return false;
+  const key = normalizeSpellKey(spellName);
+  if (!key) return false;
+
+  const spells = char.spells;
+  const isCantrip = (spells?.cantrips || []).some((s) => normalizeSpellKey(s) === key);
+  if (isCantrip) return false;
+
+  const isAlways = isAlwaysPreparedSpell(char, spellName);
+  const isPrepared =
+    isAlways || (char.prepared_spells || []).some((s) => normalizeSpellKey(s) === key);
+  let hasInLeveledSpells = false;
+  if (spells) {
+    for (const lvlKey of [
+      'level_1',
+      'level_2',
+      'level_3',
+      'level_4',
+      'level_5',
+      'level_6',
+      'level_7',
+      'level_8',
+      'level_9',
+    ] as const) {
+      if ((spells[lvlKey] || []).some((s) => normalizeSpellKey(s) === key)) {
+        hasInLeveledSpells = true;
+        break;
+      }
+    }
+  }
+  const knowsOrHasSpell = isPrepared || hasInLeveledSpells;
+  if (!knowsOrHasSpell) return false;
+
+  const classNames = new Set<string>();
+  for (const c of char.classes || []) {
+    const cname = (c.class_name || '').trim().toLowerCase();
+    if (cname) classNames.add(cname);
+  }
+  if (char.char_class) classNames.add(char.char_class.trim().toLowerCase());
+
+  const is2024 = is2024Edition(char);
+  const featureNames = (char.features_traits || []).map((f) =>
+    (typeof f === 'string' ? f : f?.name || '').toLowerCase()
+  );
+  const hasBookOrFeat = featureNames.some(
+    (fn) =>
+      fn.includes('ritual caster') ||
+      fn.includes('book of ancient secrets') ||
+      (is2024 && (fn.includes('ritual adept') || fn.includes('pact of the tome')))
+  );
+
+  if (is2024) {
+    if (isPrepared) return true;
+    return (classNames.has('wizard') || hasBookOrFeat) && hasInLeveledSpells;
+  }
+
+  // 2014 Edition
+  if (classNames.has('wizard') || hasBookOrFeat) return knowsOrHasSpell;
+  if (classNames.has('bard') && hasInLeveledSpells) return true;
+  if (classNames.has('cleric') || classNames.has('druid') || classNames.has('artificer')) {
+    return isPrepared;
+  }
+  return false;
 }
