@@ -127,25 +127,46 @@
                           </div>
                         </td>
                         <td class="px-4 py-3">
-                          <forge-badge [tone]="user.is_admin ? 'gold' : 'muted'">
-                            {{ user.is_admin ? '🛡️ Admin' : 'Player' }}
-                          </forge-badge>
+                          <div class="flex flex-wrap items-center gap-2">
+                            <forge-badge [tone]="user.is_admin ? 'gold' : 'muted'">
+                              {{ user.is_admin ? '🛡️ Admin' : 'Player' }}
+                            </forge-badge>
+                            @if (user.must_change_password) {
+                              <forge-badge tone="accent" size="sm">Reset Pending</forge-badge>
+                            }
+                          </div>
                         </td>
                         <td class="px-4 py-3 text-center font-semibold tabular-nums text-ink">{{ user.character_count }}</td>
                         <td class="px-4 py-3 text-center font-semibold tabular-nums text-ink">{{ user.dm_campaign_count }}</td>
                         <td class="px-4 py-3 text-center font-semibold tabular-nums text-ink">{{ user.member_campaign_count }}</td>
                         <td class="px-4 py-3 text-right">
-                          <button
-                            forgeButton
-                            variant="danger"
-                            size="sm"
-                            type="button"
-                            [attr.aria-label]="'Delete ' + user.username"
-                            title="Delete user and everything they own"
-                            (click)="openDeleteModal(user)"
-                          >
-                            Delete
-                          </button>
+                          <div class="flex items-center justify-end gap-2">
+                            <button
+                              forgeButton
+                              variant="secondary"
+                              size="sm"
+                              type="button"
+                              class="whitespace-nowrap"
+                              [disabled]="user.is_admin || user.is_demo || (isResettingUserId() !== null && isResettingUserId() !== user.id)"
+                              [loading]="isResettingUserId() === user.id"
+                              [attr.aria-label]="'Reset password for ' + user.username"
+                              [title]="user.is_admin ? 'Admin accounts cannot be reset here' : user.is_demo ? 'Demo accounts have no password' : 'Generate a one-time temporary password'"
+                              (click)="requestPasswordReset(user)"
+                            >
+                              🔑 Reset Password
+                            </button>
+                            <button
+                              forgeButton
+                              variant="danger"
+                              size="sm"
+                              type="button"
+                              [attr.aria-label]="'Delete ' + user.username"
+                              title="Delete user and everything they own"
+                              (click)="openDeleteModal(user)"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     }
@@ -306,6 +327,54 @@
       }
     </div>
   </forge-card>
+
+  <!-- TEMPORARY PASSWORD MODAL -->
+  <forge-modal
+    [open]="showResetPasswordModal()"
+    (closed)="closeResetPasswordModal()"
+    title="Temporary Password Issued"
+    maxWidth="520px"
+  >
+    @if (resetPasswordResult(); as resetRes) {
+      <div class="flex flex-col gap-4">
+        <p class="text-body text-ink">
+          Share this one-time temporary password with
+          <strong class="text-accent">{{ resetRes.username }}</strong>.
+          Their existing sessions have been signed out, and they will be prompted to set a new password immediately after signing in.
+        </p>
+
+        <div class="flex items-center justify-between gap-3 rounded-xl bg-tile px-4 py-3">
+          <code class="min-w-0 select-all break-all font-mono text-body font-bold text-ink">
+            {{ resetRes.temporary_password }}
+          </code>
+          <button
+            forgeButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            (click)="copyTemporaryPassword()"
+          >
+            {{ copiedTempPassword() ? 'Copied' : 'Copy' }}
+          </button>
+        </div>
+
+        <p class="text-label text-muted">
+          For security, this password is never stored in plain text and cannot be viewed again once you close this dialog.
+        </p>
+
+        <div class="flex justify-end border-t border-hairline pt-3">
+          <button
+            forgeButton
+            variant="primary"
+            type="button"
+            (click)="closeResetPasswordModal()"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    }
+  </forge-modal>
 
   <!-- USER DELETION PREVIEW MODAL -->
   <forge-modal

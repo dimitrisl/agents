@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AdminComponent } from './admin.component';
 import { AdminUser, UserDeletionPreview, WhisperReport } from '../../core/services/admin.service';
+import { ForgeConfirmService } from '../../shared/ui';
 
 describe('AdminComponent', () => {
   let component: AdminComponent;
@@ -171,5 +172,43 @@ describe('AdminComponent', () => {
     reloadRep.flush([{ ...MOCK_REPORT, status: 'resolved' }]);
 
     expect(component.showReportModal()).toBe(false);
+  });
+
+  it('issues one-time temporary password after confirmation and displays modal', async () => {
+    const confirmService = TestBed.inject(ForgeConfirmService);
+    const askSpy = jest.spyOn(confirmService, 'ask').mockResolvedValue(true);
+
+    await component.requestPasswordReset(MOCK_USER);
+
+    expect(askSpy).toHaveBeenCalled();
+    const resetReq = http.expectOne(
+      (r) => r.method === 'POST' && r.url.endsWith('/admin/users/user_1/reset-password')
+    );
+    resetReq.flush({
+      user_id: 'user_1',
+      username: 'testuser',
+      temporary_password: 'TempPass_XYZ_123',
+      must_change_password: true,
+    });
+
+    const reloadUsers = http.expectOne((r) => r.method === 'GET' && r.url.includes('/admin/users'));
+    reloadUsers.flush({ users: [{ ...MOCK_USER, must_change_password: true }], total: 1 });
+
+    expect(component.showResetPasswordModal()).toBe(true);
+    expect(component.resetPasswordResult()?.temporary_password).toBe('TempPass_XYZ_123');
+
+    component.closeResetPasswordModal();
+    expect(component.showResetPasswordModal()).toBe(false);
+    expect(component.resetPasswordResult()).toBeNull();
+  });
+
+  it('blocks resetting admin or demo users directly in UI logic', async () => {
+    const confirmService = TestBed.inject(ForgeConfirmService);
+    const askSpy = jest.spyOn(confirmService, 'ask');
+
+    await component.requestPasswordReset({ ...MOCK_USER, is_admin: true });
+    await component.requestPasswordReset({ ...MOCK_USER, is_demo: true });
+
+    expect(askSpy).not.toHaveBeenCalled();
   });
 });

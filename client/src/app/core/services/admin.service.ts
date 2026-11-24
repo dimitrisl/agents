@@ -11,9 +11,18 @@ export interface AdminUser {
   created_at?: string;
   is_admin: boolean;
   is_online?: boolean;
+  is_demo?: boolean;
+  must_change_password?: boolean;
   character_count: number;
   dm_campaign_count: number;
   member_campaign_count: number;
+}
+
+export interface AdminPasswordResetResponse {
+  user_id: string;
+  username: string;
+  temporary_password: string;
+  must_change_password: boolean;
 }
 
 export interface AdminUserListResponse {
@@ -74,6 +83,13 @@ export class AdminService {
 
   deleteUser(userId: string): Observable<any> {
     return this.http.delete(`${this.baseUrl}/users/${encodeURIComponent(userId)}`);
+  }
+
+  resetUserPassword(userId: string): Observable<AdminPasswordResetResponse> {
+    return this.http.post<AdminPasswordResetResponse>(
+      `${this.baseUrl}/users/${encodeURIComponent(userId)}/reset-password`,
+      {}
+    );
   }
 
   getReports(statusFilter?: string): Observable<WhisperReport[]> {

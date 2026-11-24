@@ -31,8 +31,17 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         if (
           err.status === 401 &&
           !req.url.includes('/auth/login') &&
-          !req.url.includes('/auth/register')
+          !req.url.includes('/auth/register') &&
+          !req.url.includes('/auth/demo') &&
+          !req.url.includes('/auth/discord/exchange')
         ) {
+          const sentAuth = req.headers.get('Authorization');
+          const activeToken = auth?.token?.();
+          const isStaleTokenRequest =
+            Boolean(sentAuth) && (!activeToken || sentAuth !== `Bearer ${activeToken}`);
+          if (isStaleTokenRequest) {
+            return throwError(() => err);
+          }
           auth?.logout?.();
           if (!req.context.get(SILENT_HTTP_ERRORS)) {
             REPORTED_GLOBALLY.add(err);

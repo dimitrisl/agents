@@ -9,7 +9,8 @@ Phyrexian Forge uses **MongoDB Atlas** accessed asynchronously via **Motor** (`A
 
 | Collection | Key Fields | Purpose |
 | :--- | :--- | :--- |
-| `users` | `id`, `username`, `password_hash`, `email`, `created_at` | User accounts and authentication credentials. |
+| `users` | `id`, `username`, `password_hash`, `email`, `discord_id`, `token_version`, `must_change_password`, `is_demo`, `created_at` | User accounts, password/token-rotation credentials, and optional OAuth links. |
+| `oauth_handoffs` | `jti`, `expires_at` | Single-use Discord OAuth2 `#code` handoff tracking with TTL expiration. |
 | `characters` | `char_id`, `owner_id`, `char_name`, `char_class`, `char_level`, `stats`, `version`, `active_campaign` | Full character sheet documents. |
 | `campaigns` | `campaign_name`, `owner_id`, `edition`, `invite_code`, `party`, `vtt_state` | Campaign metadata, party roster, and VTT grid state. |
 | `campaign_members` | `campaign_id`, `user_id`, `role` (`dm`\|`player`), `character_id`, `character_ids`, `joined_at` | Campaign membership, permissions, and multi-character enrollment per user. |
@@ -41,9 +42,14 @@ INDEX_DEFINITIONS = [
     ("characters", [("active_campaign", 1)], {"name": "idx_characters_active_campaign"}),
     ("characters", [("char_id", 1), ("owner_id", 1)], {"name": "idx_characters_char_id_owner_id"}),
 
-    # Users: unique username and unique id
+    # Users: unique username, unique id, and sparse unique discord_id
     ("users", [("username", 1)], {"unique": True, "name": "uniq_users_username"}),
     ("users", [("id", 1)], {"unique": True, "name": "uniq_users_id"}),
+    ("users", [("discord_id", 1)], {"unique": True, "sparse": True, "name": "uniq_users_discord_id"}),
+
+    # OAuth single-use handoff JTIs
+    ("oauth_handoffs", [("jti", 1)], {"unique": True, "name": "uniq_oauth_handoffs_jti"}),
+    ("oauth_handoffs", [("expires_at", 1)], {"expireAfterSeconds": 0, "name": "ttl_oauth_handoffs_expires_at"}),
 
     # Campaigns: unique campaign_name
     ("campaigns", [("campaign_name", 1)], {"unique": True, "name": "uniq_campaigns_campaign_name"}),

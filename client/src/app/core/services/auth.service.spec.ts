@@ -142,4 +142,95 @@ describe('AuthService', () => {
       expect(service.isAuthenticated()).toBe(true);
     });
   });
+
+  describe('auth lifecycle (#266)', () => {
+    it('fetches available auth providers', () => {
+      let providersRes: any;
+      service.getProviders().subscribe((res) => (providersRes = res));
+
+      const req = httpTestingController.expectOne(`${environment.apiBaseUrl}/auth/providers`);
+      expect(req.request.method).toBe('GET');
+      req.flush({ local: true, discord: true });
+
+      expect(providersRes).toEqual({ local: true, discord: true });
+    });
+
+    it('rotates token and clears must_change_password on changePassword()', () => {
+      const updatedUser: User = { ...mockUser, must_change_password: false, has_password: true };
+      service.currentUser.set({ ...mockUser, must_change_password: true });
+      expect(service.mustChangePassword()).toBe(true);
+
+      service.changePassword({ current_password: 'old-temp-password', new_password: 'NewStrongPassword99!' }).subscribe();
+
+      const req = httpTestingController.expectOne(`${environment.apiBaseUrl}/auth/change-password`);
+      expect(req.request.method).toBe('POST');
+      req.flush({ access_token: 'rotated-token', token_type: 'bearer', user: updatedUser });
+
+      expect(service.token()).toBe('rotated-token');
+      expect(localStorage.getItem('token')).toBe('rotated-token');
+      expect(service.mustChangePassword()).toBe(false);
+    });
+
+    it('exchanges Discord OAuth handoff code for session token', () => {
+      service.exchangeDiscordCode('handoff-123').subscribe();
+
+      const req = httpTestingController.expectOne(`${environment.apiBaseUrl}/auth/discord/exchange`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ code: 'handoff-123' });
+      req.flush({ access_token: 'discord-jwt', token_type: 'bearer', user: mockUser });
+
+      expect(service.token()).toBe('discord-jwt');
+      expect(service.authStatus()).toBe('authenticated');
+    });
+
+    it('ignores late stale /auth/me 401 and 200 responses after exchangeDiscordCode supersedes session', () => {
+      localStorage.setItem('token', 'expired-prev-token');
+      const lateAuth = new AuthService(
+        (service as any).http,
+        routerSpy,
+        charStateSpy
+      );
+
+      // Boot constructor issued GET /auth/me for 'expired-prev-token'
+      const bootMeReq = httpTestingController.expectOne(`${environment.apiBaseUrl}/auth/me`);
+
+      const discordUser: User = {
+        id: 'discord_user_99',
+        username: 'jace_discord',
+        has_completed_tutorial: false,
+      };
+      lateAuth.exchangeDiscordCode('fresh-code').subscribe();
+      const exReq = httpTestingController.expectOne(`${environment.apiBaseUrl}/auth/discord/exchange`);
+      exReq.flush({ access_token: 'fresh-discord-jwt', token_type: 'bearer', user: discordUser });
+
+      // Stale boot /auth/me now fails with 401: must NOT wipe the new Discord session
+      bootMeReq.flush('Expired', { status: 401, statusText: 'Unauthorized' });
+
+      expect(lateAuth.token()).toBe('fresh-discord-jwt');
+      expect(lateAuth.currentUser()).toEqual(discordUser);
+      expect(lateAuth.authStatus()).toBe('authenticated');
+      expect(charStateSpy.reset).not.toHaveBeenCalled();
+      expect(routerSpy.navigate).not.toHaveBeenCalledWith(['/login']);
+    });
+
+    it('ignores late stale /auth/me 200 user payload if session already changed', () => {
+      localStorage.setItem('token', 'old-user-token');
+      const lateAuth = new AuthService(
+        (service as any).http,
+        routerSpy,
+        charStateSpy
+      );
+      const bootMeReq = httpTestingController.expectOne(`${environment.apiBaseUrl}/auth/me`);
+
+      const newUser: User = { id: 'u_new', username: 'new_hero', has_completed_tutorial: true };
+      lateAuth.exchangeDiscordCode('fresh-code-2').subscribe();
+      const exReq = httpTestingController.expectOne(`${environment.apiBaseUrl}/auth/discord/exchange`);
+      exReq.flush({ access_token: 'new-jwt', token_type: 'bearer', user: newUser });
+
+      // Old /auth/me finally resolves with old user: must NOT overwrite currentUser
+      bootMeReq.flush({ id: 'u_old', username: 'old_hero', has_completed_tutorial: true });
+      expect(lateAuth.currentUser()).toEqual(newUser);
+      expect(localStorage.getItem('currentUser')).toContain('new_hero');
+    });
+  });
 });

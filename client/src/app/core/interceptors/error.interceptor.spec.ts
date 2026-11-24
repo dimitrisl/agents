@@ -73,6 +73,34 @@ describe('errorInterceptor', () => {
     expect(toast.showMessage).not.toHaveBeenCalled();
   });
 
+  it('ignores 401 responses for superseded Authorization headers once auth.token rotated', () => {
+    (auth as any).token = jest.fn(() => 'new-rotated-token');
+    http
+      .get('/api/v1/auth/me', { headers: { Authorization: 'Bearer old-stale-token' } })
+      .subscribe({ error: () => {} });
+    httpMock
+      .expectOne('/api/v1/auth/me')
+      .flush({ detail: 'Could not validate credentials' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(auth.logout).not.toHaveBeenCalled();
+    expect(toast.showMessage).not.toHaveBeenCalled();
+  });
+
+  it('does not logout or show expired-session toast on 401 from /auth/discord/exchange or /auth/demo', () => {
+    http.post('/api/v1/auth/discord/exchange', { code: 'bad' }).subscribe({ error: () => {} });
+    httpMock
+      .expectOne('/api/v1/auth/discord/exchange')
+      .flush({ detail: 'Invalid or expired Discord login code.' }, { status: 401, statusText: 'Unauthorized' });
+
+    http.post('/api/v1/auth/demo', { demo_type: 'mitsos' }).subscribe({ error: () => {} });
+    httpMock
+      .expectOne('/api/v1/auth/demo')
+      .flush({ detail: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(auth.logout).not.toHaveBeenCalled();
+    expect(toast.showMessage).not.toHaveBeenCalled();
+  });
+
   it('stays quiet for requests marked SILENT_HTTP_ERRORS', () => {
     fail(503, null, new HttpContext().set(SILENT_HTTP_ERRORS, true));
     expect(toast.showMessage).not.toHaveBeenCalled();

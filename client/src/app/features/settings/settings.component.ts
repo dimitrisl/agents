@@ -1,7 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Optional } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AIModelOption, AISettings, AISettingsUpdate } from '../../core/models/ai-settings.model';
+import { describeHttpError } from '../../core/interceptors/error.interceptor';
+import { AuthService } from '../../core/services/auth.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { SettingsService } from '../../core/services/settings.service';
@@ -61,13 +64,31 @@ export class SettingsComponent implements OnInit {
   anthropicKeyHint: string | null = null;
   private removeAnthropicKey = false;
 
+  /** Account security (self-service password change) form state. */
+  currentPassword = '';
+  newPassword = '';
+  confirmPassword = '';
+  changingPassword = false;
+  passwordError = '';
+  passwordSuccess = '';
+
   constructor(
     public charState: CharacterStateService,
     private rollToast: RollToastService,
-    private settingsService: SettingsService
+    private settingsService: SettingsService,
+    @Optional() private authService?: AuthService
   ) {}
 
   ngOnInit() {
+    if (this.mustChangePassword) {
+      this.loadingSettings = false;
+      return;
+    }
+    this.loadAISettings();
+  }
+
+  private loadAISettings() {
+    this.loadingSettings = true;
     this.settingsService.getAISettings().subscribe({
       next: (settings) => {
         this.applySettings(settings);
@@ -134,6 +155,78 @@ export class SettingsComponent implements OnInit {
 
   get isFreeTierModel(): boolean {
     return this.modelOptions.some((m) => m.id === this.preferredModel && m.free_tier);
+  }
+
+  get mustChangePassword(): boolean {
+    return Boolean(this.authService?.currentUser()?.must_change_password);
+  }
+
+  get isDemoAccount(): boolean {
+    return Boolean(this.authService?.currentUser()?.is_demo);
+  }
+
+  get hasPassword(): boolean {
+    return this.authService?.currentUser()?.has_password !== false;
+  }
+
+  get currentUsername(): string {
+    return this.authService?.currentUser()?.username || 'Adventurer';
+  }
+
+  changePassword() {
+    if (this.changingPassword || this.isDemoAccount || !this.authService) return;
+    this.passwordError = '';
+    this.passwordSuccess = '';
+
+    if (this.hasPassword && !this.currentPassword) {
+      this.passwordError = 'Please enter your current password.';
+      return;
+    }
+    if (this.newPassword.length < 8 || this.newPassword.length > 128) {
+      this.passwordError = 'New password must be between 8 and 128 characters.';
+      return;
+    }
+    if (this.hasPassword && this.newPassword === this.currentPassword) {
+      this.passwordError = 'New password must be different from your current password.';
+      return;
+    }
+    if (this.newPassword !== this.confirmPassword) {
+      this.passwordError = 'New password and confirmation do not match.';
+      return;
+    }
+
+    const payload = this.hasPassword
+      ? { current_password: this.currentPassword, new_password: this.newPassword }
+      : { new_password: this.newPassword };
+
+    const wasForcedReset = this.mustChangePassword;
+    this.changingPassword = true;
+    this.authService.changePassword(payload).subscribe({
+      next: () => {
+        this.changingPassword = false;
+        this.currentPassword = '';
+        this.newPassword = '';
+        this.confirmPassword = '';
+        this.passwordSuccess = 'Password updated. All older sessions have been signed out.';
+        this.rollToast.showMessage(
+          '🔐 PASSWORD UPDATED',
+          'Your account password was changed and session rotated.'
+        );
+        if (wasForcedReset) {
+          this.loadAISettings();
+        }
+      },
+      error: (err) => {
+        this.changingPassword = false;
+        const detail =
+          typeof err?.error?.detail === 'string'
+            ? err.error.detail
+            : err instanceof HttpErrorResponse
+              ? describeHttpError(err)?.body
+              : undefined;
+        this.passwordError = detail || 'Could not update password.';
+      },
+    });
   }
 
   onEditionChange(newEdition: string) {

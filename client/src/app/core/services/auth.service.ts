@@ -1,9 +1,15 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, shareReplay, tap } from 'rxjs';
-import { User, AuthResponse } from '../models/user.model';
+import {
+  User,
+  AuthResponse,
+  AuthProvidersResponse,
+  ChangePasswordPayload,
+} from '../models/user.model';
 import { CharacterStateService } from './character-state.service';
+import { SILENT_HTTP_ERRORS } from '../interceptors/error.interceptor';
 import { environment } from '../../../environments/environment';
 
 type AuthStatus = 'checking' | 'authenticated' | 'anonymous';
@@ -27,20 +33,26 @@ export class AuthService {
     () => this.authStatus() === 'authenticated' && !!this.currentUser() && !!this.token()
   );
   readonly hasToken = computed(() => !!this.token());
+  readonly mustChangePassword = computed(() => Boolean(this.currentUser()?.must_change_password));
 
   // The boot-time session check and the route guard both ask for the current
   // user, so they share one request instead of racing two identical ones.
   private currentUser$: Observable<User> | null = null;
+  private sessionGeneration = 0;
 
   constructor(
     private http: HttpClient,
     private router: Router,
     private charState: CharacterStateService
   ) {
-    if (this.token()) {
+    const isOAuthCallback =
+      typeof window !== 'undefined' &&
+      window.location.pathname.replace(/\/+$/, '') === '/auth/callback';
+    if (this.token() && !isOAuthCallback) {
+      const bootGen = this.sessionGeneration;
       this.fetchCurrentUser().subscribe({
         error: (error) => {
-          if (this.isAuthFailure(error)) {
+          if (bootGen === this.sessionGeneration && this.isAuthFailure(error)) {
             this.logout();
             this.authStatus.set('anonymous');
           }
@@ -55,24 +67,52 @@ export class AuthService {
     formData.append('password', credentials.password);
 
     return this.http.post<AuthResponse>(`${this.API_URL}/login`, formData).pipe(
-      tap((res) => {
-        this.persistSession(res);
-        this.token.set(res.access_token);
-        this.currentUser.set(res.user);
-        this.authStatus.set('authenticated');
-      })
+      tap((res) => this.applyAuthSession(res))
     );
   }
 
   demoLogin(demoType: string): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.API_URL}/demo`, { demo_type: demoType }).pipe(
-      tap((res) => {
-        this.persistSession(res);
-        this.token.set(res.access_token);
-        this.currentUser.set(res.user);
-        this.authStatus.set('authenticated');
-      })
+      tap((res) => this.applyAuthSession(res))
     );
+  }
+
+  getProviders(): Observable<AuthProvidersResponse> {
+    return this.http.get<AuthProvidersResponse>(`${this.API_URL}/providers`, {
+      context: new HttpContext().set(SILENT_HTTP_ERRORS, true),
+    });
+  }
+
+  changePassword(payload: ChangePasswordPayload): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.API_URL}/change-password`, payload).pipe(
+      tap((res) => this.applyAuthSession(res))
+    );
+  }
+
+  exchangeDiscordCode(code: string): Observable<AuthResponse> {
+    this.sessionGeneration++;
+    this.currentUser$ = null;
+    localStorage.removeItem(this.TOKEN_STORAGE_KEY);
+    localStorage.removeItem(this.USER_STORAGE_KEY);
+    this.token.set(null);
+    this.currentUser.set(null);
+    this.authStatus.set('anonymous');
+    return this.http.post<AuthResponse>(`${this.API_URL}/discord/exchange`, { code }).pipe(
+      tap((res) => this.applyAuthSession(res))
+    );
+  }
+
+  startDiscordLogin(): void {
+    window.location.assign(`${this.API_URL}/discord/login`);
+  }
+
+  private applyAuthSession(res: AuthResponse): void {
+    this.sessionGeneration++;
+    this.currentUser$ = null;
+    this.persistSession(res);
+    this.token.set(res.access_token);
+    this.currentUser.set(res.user);
+    this.authStatus.set('authenticated');
   }
 
   register(userData: any): Observable<User> {
@@ -81,18 +121,21 @@ export class AuthService {
 
   fetchCurrentUser(): Observable<User> {
     if (!this.currentUser$) {
+      const reqGen = this.sessionGeneration;
       this.currentUser$ = this.http.get<User>(`${this.API_URL}/me`).pipe(
         tap({
           // Cleared once settled, so this only ever collapses concurrent callers
           // and a later check still re-validates the session against the server.
           next: (user) => {
             this.currentUser$ = null;
+            if (reqGen !== this.sessionGeneration) return;
             localStorage.setItem(this.USER_STORAGE_KEY, JSON.stringify(user));
             this.currentUser.set(user);
             this.authStatus.set('authenticated');
           },
           error: (error) => {
             this.currentUser$ = null;
+            if (reqGen !== this.sessionGeneration) return;
             if (!this.isAuthFailure(error) && this.token()) {
               const cached = this.readCachedUser();
               if (cached) {
@@ -123,6 +166,7 @@ export class AuthService {
   }
 
   logout() {
+    this.sessionGeneration++;
     localStorage.removeItem(this.TOKEN_STORAGE_KEY);
     localStorage.removeItem(this.USER_STORAGE_KEY);
     localStorage.removeItem('phyrexian_forge_temp_hero');

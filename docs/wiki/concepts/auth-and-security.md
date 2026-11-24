@@ -12,13 +12,23 @@ Security in **Phyrexian Forge** relies on standard JWT bearer tokens, database-b
    - Backward-compatible verification supports legacy SHA-256 hashes (`legacy_sha256_hash`).
    - **Transparent Hash Upgrade:** When a user with a legacy SHA-256 hash successfully logs in (`/api/v1/auth/login`), the server automatically upgrades their password hash to PBKDF2 (`hash_password(form_data.password)`) and persists it in MongoDB, seamlessly eliminating legacy hashes over time without requiring password resets.
 
-2. **JWT Access Tokens:**
+2. **JWT Access Tokens & Revocation (`token_version` & `purpose`):**
    - Signed using `HS256` with `settings.SECRET_KEY` (minimum 32-byte key required by RFC 7518).
-   - Payload contains `sub` (user ID) and `username`.
+   - Payload contains `sub` (user ID), `username`, `iat`, `exp`, `purpose: "access"`, and `tv` (`token_version`, integer defaulting to `0`).
+   - [`get_current_user_from_token`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/dependencies/auth.py#L87) rejects non-`"access"` tokens (preventing `discord_oauth_handoff` or `discord_oauth_state` JWTs from authenticating API/WebSocket calls), rejects tokens with `tv < user.token_version` (`HTTP 401`) or predating `created_at`, and normalizes synthesized `id` (`local_user_<username>`) for legacy id-less DB docs.
    - Default expiration is configured via `settings.ACCESS_TOKEN_EXPIRE_MINUTES` (7 days).
 
-3. **Debug Mode Isolation:**
-   - Demo logins (e.g. `mitsos`, `adventurer`) are gated behind `settings.DEBUG_MODE = True`.
+3. **Self-Service Password Change, Admin One-Time Reset & Forced Password Rotation:**
+   - **Self-Service (`POST /api/v1/auth/change-password`):** Validates `new_password` (`8..128` chars), rejects demo accounts (`HTTP 403`), rejects mismatched `current_password` with `HTTP 400` (avoiding premature `401` auto-logout in the Angular error interceptor when typing an old password), allows passwordless OAuth users (`has_password == False`) to set an initial local password, increments `token_version`, clears `must_change_password`, and returns a rotated [`TokenResponseSchema`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/auth_router.py).
+   - **Admin One-Time Reset (`POST /api/v1/admin/users/{user_id}/reset-password`):** Requires [`require_admin`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/dependencies/auth.py), blocks self-resets (`400`), other admin resets (`403`), and demo accounts (`400`). Generates a CSPRNG temporary password (`secrets.token_urlsafe(10)`), stores only its PBKDF2 hash with `must_change_password: True`, increments `token_version`, writes a password-free audit entry in `admin_audit_log`, and returns the plaintext temporary password strictly once.
+   - **Forced Reset Guard:** While `must_change_password` is `True`, [`get_current_user`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/dependencies/auth.py) rejects non-`/auth/` REST calls (`HTTP 403`) and [`websocket_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/websocket_router.py) closes WebSocket upgrades (`1008`) until the user completes `/auth/change-password`. Both `change_password` and `reset_user_password` also invoke `manager.disconnect_user(...)` to close already-open WebSocket connections immediately.
+
+4. **Optional Discord OAuth2 Onboarding:**
+   - Active only when both `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` are set in `.env`; otherwise `/api/v1/auth/providers` reports `{"local": true, "discord": false}` and `/auth/discord/*` returns `503`.
+   - `/auth/discord/login` signs a 5-minute `state` JWT paired with an `HttpOnly`, `SameSite=Lax` CSRF nonce cookie (`pf_discord_oauth_nonce`, setting `Secure` on HTTPS or trusted-proxy `X-Forwarded-Proto: https`). `/auth/discord/callback` validates both values, looks up users strictly by `discord_id` (never auto-linking onto existing local accounts by email so account pre-hijacking is impossible, and storing Discord `email` only when `verified: true`), and redirects back to `/auth/callback#code=<handoff_jwt>` (60s single-use JTI enforced fail-closed in memory + Mongo `oauth_handoffs` via `POST /auth/discord/exchange` so long-lived JWTs never appear in URLs or work directly as Bearer tokens).
+
+5. **Debug Mode Isolation:**
+   - Demo logins (e.g. `mitsos`, `adventurer`) are explicitly tagged (`is_demo: True`) and gated behind `settings.DEBUG_MODE = True`.
    - In production environments (`DEBUG_MODE = False`), demo authentication endpoints return `HTTP 403 Forbidden`.
 
 ---
@@ -104,7 +114,7 @@ To protect the server from credential brute-forcing and safeguard the Gemini API
 - **Fallback:** Defaults to client IP when no valid token is provided.
 
 ### 2. Configured Thresholds
-- **Auth Login (`/auth/login`, `/auth/demo`):** 5 requests / minute per IP.
+- **Auth Login & Password Lifecycle (`/auth/login`, `/auth/demo`, `/auth/change-password`, `/auth/discord/login`, `/auth/discord/callback`, `/auth/discord/exchange`):** 5 requests / minute per IP (`AUTH_LOGIN_RATE_LIMIT`).
 - **Auth Registration (`/auth/register`):** 3 requests / minute per IP.
 - **AI Endpoints (`/forge/*`, `/rules/query`, `/rules/compare`, `/rules/autofix`, `/dm/*`, `/homebrew/forge`):** 10 requests / minute per authenticated user.
 - **Session Audio AI Processing (`/campaigns/{name}/sessions/audio`):** 2 requests / minute per DM.
