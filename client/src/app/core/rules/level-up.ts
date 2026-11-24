@@ -143,7 +143,11 @@ export function getMulticlassGrantedProficiencies(className: string, is2024: boo
 }
 
 export function getMulticlassEligibility(char: CharacterSchema | null | undefined): MulticlassOption[] {
-  const stats = ((char?.base_stats || char?.stats || {}) as Record<string, number>);
+  const stats = (
+    char?.base_stats && Object.keys(char.base_stats).length > 0
+      ? char.base_stats
+      : char?.stats || {}
+  ) as Record<string, number>;
   const is2024 = is2024Edition(char);
   const existingLevels = new Map<string, number>();
 

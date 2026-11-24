@@ -519,3 +519,122 @@ def test_apply_level_up_respects_2014_vs_2024_monk_and_druid_grants(auth_client,
     assert "light armor" in armor24
     assert "shields" in armor24
     assert "medium armor" not in armor24
+
+    # ruleset_version alone (without dnd_edition) also triggers 2024 parity
+    ruleset_only_druid = _hero(
+        char_id="char-ruleset-2024",
+        char_name="SylvaRuleset",
+        race="Human",
+        char_class="Wizard",
+        classes=[{"class_name": "Wizard", "level": 4, "subclass": "Evoker"}],
+        stats=base_stats,
+        hit_dice="4d6",
+        saving_throws=["INT", "WIS"],
+        skill_proficiencies=["Arcana", "History"],
+        weapon_proficiencies=[],
+        tool_proficiencies=[],
+    )
+    ruleset_only_druid.pop("dnd_edition", None)
+    ruleset_only_druid["ruleset_version"] = EDITION_2024
+    armor_ruleset = get_character_armor_proficiencies(
+        {
+            **ruleset_only_druid,
+            "classes": [*ruleset_only_druid["classes"], {"class_name": "Druid", "level": 1}],
+        },
+        {},
+    )
+    assert "light armor" in armor_ruleset
+    assert "medium armor" not in armor_ruleset
+
+
+def test_multiclass_edge_cases_subclass_isolation_skill_abuse_and_legacy_slots(auth_client, raw_db):
+    # 1. Primary class subclass ('Champion') MUST NOT bleed into a newly entered multiclass (2024 Cleric L1)
+    champion = _hero(
+        char_id="char-champ-cleric",
+        dnd_edition=EDITION_2024,
+        stats={"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 14, "CHA": 8},
+        subclass="Champion",
+        classes=[{"class_name": "Fighter", "level": 4, "subclass": "Champion"}],
+    )
+    raw_db["characters"].insert_one(champion.copy())
+
+    cleric_analysis = auth_client.post(
+        "/api/v1/forge/level-up-analysis",
+        json={"character": champion, "user_choices": {"level_up_class": "Cleric"}},
+    ).json()
+    divine_idx = next(
+        i for i, c in enumerate(cleric_analysis["choices_required"]) if c["type"] == "divine_order"
+    )
+    res_cleric = auth_client.post(
+        "/api/v1/forge/level-up-apply",
+        json={
+            "character_id": champion["char_id"],
+            "analysis": cleric_analysis,
+            "user_choices": {
+                "level_up_class": "Cleric",
+                "hp_method": "average",
+                f"divine_order_{divine_idx}": "Divine Order: Protector",
+            },
+        },
+    )
+    assert res_cleric.status_code == 200, res_cleric.text
+    cleric_updated = res_cleric.json()
+    feat_names = [f["name"] for f in cleric_updated["features_traits"]]
+    assert not any("Champion Subclass Feature" in name for name in feat_names)
+    cleric_entry = next(c for c in cleric_updated["classes"] if c["class_name"] == "Cleric")
+    assert cleric_entry.get("subclass") in (None, "")
+
+    # 2. Crafted duplicate skill_* keys during Rogue multiclass OR skill_0 on Fighter level-up return HTTP 400
+    rogue_hero = _hero(char_id="char-skill-abuse")
+    raw_db["characters"].insert_one(rogue_hero.copy())
+    rogue_analysis = auth_client.post(
+        "/api/v1/forge/level-up-analysis",
+        json={"character": rogue_hero, "user_choices": {"level_up_class": "Rogue"}},
+    ).json()
+    skill_idx = next(
+        i for i, c in enumerate(rogue_analysis["choices_required"]) if c["type"] == "skill"
+    )
+    dup_skill_resp = auth_client.post(
+        "/api/v1/forge/level-up-apply",
+        json={
+            "character_id": rogue_hero["char_id"],
+            "analysis": rogue_analysis,
+            "user_choices": {
+                "level_up_class": "Rogue",
+                "hp_method": "average",
+                f"skill_{skill_idx}": "Acrobatics",
+                "skill_99": "Investigation",
+            },
+        },
+    )
+    assert dup_skill_resp.status_code == 400
+
+    fighter_analysis = auth_client.post(
+        "/api/v1/forge/level-up-analysis",
+        json={"character": rogue_hero, "user_choices": {"level_up_class": "Fighter"}},
+    ).json()
+    arbitrary_skill_resp = auth_client.post(
+        "/api/v1/forge/level-up-apply",
+        json={
+            "character_id": rogue_hero["char_id"],
+            "analysis": fighter_analysis,
+            "user_choices": {
+                "level_up_class": "Fighter",
+                "hp_method": "average",
+                "skill_0": "Arcana",
+            },
+        },
+    )
+    assert arbitrary_skill_resp.status_code == 400
+
+    # 3. Legacy character without `classes` array computes Level 1 Wizard slots (not Level 5 slots)
+    legacy_fighter = _hero(
+        char_id="char-legacy-noclasses",
+        classes=[],
+        stats={"STR": 16, "DEX": 12, "CON": 14, "INT": 14, "WIS": 10, "CHA": 8},
+    )
+    legacy_analysis = analyze_level_up(legacy_fighter, {"level_up_class": "Wizard"})
+    slots = legacy_analysis["updated_spell_slots"]
+    assert slots.get("level_1") == 2
+    assert slots.get("level_2", 0) == 0
+    assert slots.get("level_3", 0) == 0

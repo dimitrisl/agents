@@ -1591,6 +1591,16 @@ describe('DM Controls, 2014 vs 2024 Exhaustion Parity, Roll Modes & Passive Perc
         "Thieves' Tools",
         '1 Rogue Skill',
       ]);
+
+      // Empty base_stats object falls back to populated stats (matches Python falsiness)
+      const emptyBaseHero = hero({
+        char_class: 'Fighter',
+        char_level: 3,
+        base_stats: {} as any,
+        stats: { STR: 16, DEX: 12, CON: 14, INT: 16, WIS: 10, CHA: 8 },
+      });
+      const emptyBaseMap = new Map(getMulticlassEligibility(emptyBaseHero).map((o) => [o.class_name, o]));
+      expect(emptyBaseMap.get('Wizard')?.eligible).toBe(true);
     });
   });
 });

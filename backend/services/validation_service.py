@@ -727,7 +727,7 @@ def validate_multiclass_target(
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
     """Extracts all armor proficiencies granted by primary class, multiclass table, subclass, and features."""
     proficiencies = set()
-    edition = char_data.get("dnd_edition", "2014 Edition")
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
     is_2024 = "2024" in str(edition or "")
     repo = RulesRepository()
     mc_armor_table = _MULTICLASS_ARMOR_PROFS_2024 if is_2024 else _MULTICLASS_ARMOR_PROFS_2014
@@ -882,7 +882,7 @@ def get_character_weapon_proficiencies(
 ) -> set[str]:
     """Extract weapon proficiencies from primary class, multiclass table, subclass, race, and features."""
     profs: set[str] = set()
-    edition = char_data.get("dnd_edition", "2014 Edition")
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
     is_2024 = "2024" in str(edition or "")
     mc_weapon_table = _MULTICLASS_WEAPON_PROFS_2024 if is_2024 else _MULTICLASS_WEAPON_PROFS_2014
     repo = RulesRepository()

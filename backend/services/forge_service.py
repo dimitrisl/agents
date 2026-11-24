@@ -3663,6 +3663,14 @@ def analyze_level_up(char_data: dict, user_choices: dict = None) -> dict:
 
     # Deterministically compute updated spell slots for the target level
     updated_classes = [dict(c) for c in classes] if classes else []
+    if not updated_classes and char_data.get("char_class"):
+        updated_classes = [
+            {
+                "class_name": str(char_data.get("char_class")).strip(),
+                "level": max(1, int(char_data.get("char_level") or 1)),
+                "subclass": char_data.get("subclass"),
+            }
+        ]
     if updated_classes:
         matched_cls = False
         for c in updated_classes:

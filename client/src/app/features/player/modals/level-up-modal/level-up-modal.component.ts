@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, Output, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+  inject,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -34,7 +45,7 @@ import { environment } from '../../../../../environments/environment';
   templateUrl: './level-up-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LevelUpModalComponent {
+export class LevelUpModalComponent implements OnChanges {
   private readonly destroyRef = inject(DestroyRef);
   private readonly recommendationsTrigger$ = new Subject<void>();
 
@@ -89,6 +100,23 @@ export class LevelUpModalComponent {
   showMulticlassMatrix = false;
   planningLevel: number | null = null;
 
+  ngOnChanges(changes: SimpleChanges): void {
+    const closedModal = changes['open'] && !this.open;
+    const prevChar = changes['character']?.previousValue as CharacterSchema | null | undefined;
+    const currChar = changes['character']?.currentValue as CharacterSchema | null | undefined;
+    const prevKey = prevChar ? (prevChar.char_id || prevChar.char_name || '') : null;
+    const currKey = currChar ? (currChar.char_id || currChar.char_name || '') : null;
+    const switchedHero = Boolean(changes['character'] && prevChar && currKey !== prevKey);
+
+    if (closedModal || switchedHero) {
+      this.showMulticlassMatrix = false;
+      this.showRecommendations = false;
+      this.buildRecommendations = [];
+      this.recommendationsError = null;
+      this.planningLevel = null;
+    }
+  }
+
   readonly abilityStatOptions = [
     { code: 'STR', label: 'Strength (STR)' },
     { code: 'DEX', label: 'Dexterity (DEX)' },
@@ -119,21 +147,55 @@ export class LevelUpModalComponent {
   }
 
   get existingClassOptions(): MulticlassOption[] {
-    return this.multiclassOptions.filter((opt) => opt.is_existing);
+    const canonical = this.multiclassOptions.filter((opt) => opt.is_existing);
+    const seen = new Set(canonical.map((opt) => opt.class_name.trim().toLowerCase()));
+    const custom: MulticlassOption[] = [];
+    for (const cls of this.characterClasses) {
+      const cname = (cls.class_name || '').trim();
+      const low = cname.toLowerCase();
+      if (!cname || seen.has(low)) continue;
+      seen.add(low);
+      const curLvl = Math.max(1, Number(cls.level || 1));
+      custom.push({
+        class_name: cname,
+        is_existing: true,
+        current_level: curLvl,
+        target_level: curLvl + 1,
+        hit_die: hitDieSidesFor(cname),
+        eligible: true,
+        prerequisite_summary: 'Current class',
+        missing_prerequisites: [],
+        granted_proficiencies: [],
+      });
+    }
+    return [...canonical, ...custom];
   }
 
   get newMulticlassOptions(): MulticlassOption[] {
     return this.multiclassOptions.filter((opt) => !opt.is_existing);
   }
 
+  get matrixOptions(): MulticlassOption[] {
+    return [...this.existingClassOptions, ...this.newMulticlassOptions];
+  }
+
   get eligibleNewClassCount(): number {
     return this.newMulticlassOptions.filter((opt) => opt.eligible).length;
   }
 
-  get selectedClassOption(): MulticlassOption | null {
-    const target = (this.levelUpClass || '').trim().toLowerCase();
+  private get rawLevelUpClass(): string {
     return (
-      this.multiclassOptions.find(
+      this.userChoices['level_up_class'] ||
+      this.characterClasses[0]?.class_name ||
+      this.character?.char_class ||
+      'Fighter'
+    );
+  }
+
+  get selectedClassOption(): MulticlassOption | null {
+    const target = this.rawLevelUpClass.trim().toLowerCase();
+    return (
+      this.matrixOptions.find(
         (opt) => opt.class_name.trim().toLowerCase() === target,
       ) ?? null
     );
@@ -144,7 +206,7 @@ export class LevelUpModalComponent {
     if (selected) {
       return !selected.is_existing;
     }
-    const target = (this.levelUpClass || '').trim().toLowerCase();
+    const target = this.rawLevelUpClass.trim().toLowerCase();
     return !this.characterClasses.some(
       (c) => (c.class_name || '').trim().toLowerCase() === target,
     );
@@ -186,12 +248,7 @@ export class LevelUpModalComponent {
   }
 
   get levelUpClass() {
-    return (
-      this.userChoices['level_up_class'] ||
-      this.characterClasses[0]?.class_name ||
-      this.character?.char_class ||
-      'Fighter'
-    );
+    return this.selectedClassOption?.class_name || this.rawLevelUpClass;
   }
 
   get targetClassLevel() {

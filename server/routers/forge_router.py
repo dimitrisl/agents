@@ -388,9 +388,12 @@ async def apply_level_up(
     )
     new_class_level = int((target_class_entry or {}).get("level") or char_doc["char_level"])
     old_class_level = max(0, new_class_level - 1)
-    pre_subclass = (
-        target_class_entry.get("subclass") if target_class_entry else None
-    ) or char_doc.get("subclass")
+    is_primary_target = (
+        target_class.strip().lower() == str(char_doc.get("char_class") or "").strip().lower()
+    )
+    pre_subclass = (target_class_entry.get("subclass") if target_class_entry else None) or (
+        char_doc.get("subclass") if is_primary_target else None
+    )
     # Resolve any newly selected subclass before computing HP vitals so unlocks (e.g. 2024 L3 Draconic) match analyze_level_up
     chosen_subclass = pre_subclass
     if payload.user_choices:
@@ -796,23 +799,31 @@ async def apply_level_up(
                 or "proficiency" in choice_label.lower()
             ):
                 clean_skill = str(choice_val).strip()
-                if is_new_multiclass and target_class.strip().lower() in (
-                    "bard",
-                    "ranger",
-                    "rogue",
+                if not (
+                    is_new_multiclass
+                    and target_class.strip().lower() in ("bard", "ranger", "rogue")
                 ):
-                    allowed_mc_skills = get_multiclass_skill_options(target_class, pre_level_skills)
-                    canon_skill = next(
-                        (s for s in allowed_mc_skills if s.lower() == clean_skill.lower()), None
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Skill selection is not permitted when advancing {target_class}.",
                     )
-                    if allowed_mc_skills and canon_skill is None:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Skill '{clean_skill}' is not a valid multiclass skill option for {target_class}.",
-                        )
-                    if canon_skill is not None:
-                        clean_skill = canon_skill
-                    multiclass_skill_selected = True
+                if multiclass_skill_selected:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Only 1 bonus skill proficiency may be selected when multiclassing into {target_class}.",
+                    )
+                allowed_mc_skills = get_multiclass_skill_options(target_class, pre_level_skills)
+                canon_skill = next(
+                    (s for s in allowed_mc_skills if s.lower() == clean_skill.lower()), None
+                )
+                if allowed_mc_skills and canon_skill is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Skill '{clean_skill}' is not a valid multiclass skill option for {target_class}.",
+                    )
+                if canon_skill is not None:
+                    clean_skill = canon_skill
+                multiclass_skill_selected = True
                 prof_list = char_doc.setdefault("skill_proficiencies", [])
                 if clean_skill and not any(
                     str(s or "").strip().lower() == clean_skill.lower() for s in prof_list

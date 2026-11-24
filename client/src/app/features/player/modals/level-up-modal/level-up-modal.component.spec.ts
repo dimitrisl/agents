@@ -749,7 +749,9 @@ describe('LevelUpModalComponent', () => {
     fixture.componentRef.setInput('levelUpAnalysis', {
       hp_increase: 7,
       new_total_hp: 45,
-      automatic_changes: ['Multiclass Proficiencies (Rogue): Light Armor, Thieves\' Tools'],
+      automatic_changes: [
+        { name: 'Multiclass Proficiencies (Rogue)', description: "Light Armor, Thieves' Tools" },
+      ],
       choices_required: [
         { type: 'skill', label: 'Multiclass Bonus Skill (Rogue)', options: ['Acrobatics', 'Stealth'] },
       ],
@@ -771,5 +773,50 @@ describe('LevelUpModalComponent', () => {
     ) as HTMLButtonElement | null;
     expect(component.hasIncompleteMulticlassSkillChoice).toBe(false);
     expect(applyBtn?.disabled).toBe(false);
+  });
+
+  it('resets transient UI state across modal close/hero switch and preserves custom classes & lowercase matching', () => {
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      char_id: 'hero-a',
+      char_class: 'fighter',
+      classes: [
+        { class_name: 'fighter', level: 3 },
+        { class_name: 'Blood Hunter', level: 1 },
+      ],
+    });
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+
+    // Canonical lowercase matching + non-canonical custom class preservation
+    expect(component.levelUpClass).toBe('Fighter');
+    expect(component.existingClassOptions.map((o) => o.class_name)).toContain('Blood Hunter');
+
+    component.showMulticlassMatrix = true;
+    component.showRecommendations = true;
+    component.planningLevel = 7;
+
+    // Closing modal resets transient state
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+    expect(component.showMulticlassMatrix).toBe(false);
+    expect(component.showRecommendations).toBe(false);
+    expect(component.planningLevel).toBeNull();
+
+    // Switching hero while open also resets transient state
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    component.showMulticlassMatrix = true;
+    component.showRecommendations = true;
+    fixture.componentRef.setInput('character', {
+      ...mockCharacter,
+      char_id: 'hero-b',
+      char_name: 'Lyra',
+      char_class: 'Wizard',
+      classes: [{ class_name: 'Wizard', level: 4 }],
+    });
+    fixture.detectChanges();
+    expect(component.showMulticlassMatrix).toBe(false);
+    expect(component.showRecommendations).toBe(false);
   });
 });

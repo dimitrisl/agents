@@ -4,7 +4,7 @@
   <div class="mb-4 flex flex-col gap-3 rounded-lg border border-hairline bg-tile p-4">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
-        <span class="text-label font-semibold uppercase text-muted shrink-0">Class to Level Up:</span>
+        <span class="text-micro font-semibold uppercase text-muted shrink-0">Class to Level Up:</span>
         <select forgeSelect [ngModel]="levelUpClass" (ngModelChange)="onClassChange($event)" class="min-w-50 w-full sm:w-auto flex-1">
           <optgroup label="Current Classes">
             @if (existingClassOptions.length > 0) {
@@ -65,8 +65,8 @@
             <forge-badge tone="success" size="sm">✓ Meets {{ mc.prerequisite_summary }}</forge-badge>
           </div>
         </div>
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span class="text-label font-semibold uppercase text-muted mr-1">PHB Proficiencies Granted:</span>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-micro font-semibold uppercase text-muted mr-1">PHB Proficiencies Granted:</span>
           @if (mc.granted_proficiencies.length > 0) {
             @for (prof of mc.granted_proficiencies; track prof) {
               <forge-badge tone="gold" size="sm">{{ prof }}</forge-badge>
@@ -82,23 +82,23 @@
     }
 
     @if (showMulticlassMatrix) {
-      <div class="flex flex-col gap-2 pt-1 border-t border-hairline" data-testid="multiclass-eligibility-matrix">
+      <div class="flex flex-col gap-2 pt-2 border-t border-hairline" data-testid="multiclass-eligibility-matrix">
         <div class="flex items-center justify-between gap-2">
-          <span class="text-label font-semibold uppercase tracking-wider text-muted">
-            Multiclass Eligibility Overview ({{ multiclassOptions.length }} Classes)
+          <span class="text-micro font-semibold uppercase tracking-wider text-muted">
+            Multiclass Eligibility Overview ({{ matrixOptions.length }} Classes)
           </span>
           <span class="text-label text-muted">
             Click an eligible class to switch target
           </span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          @for (opt of multiclassOptions; track opt.class_name) {
+          @for (opt of matrixOptions; track opt.class_name) {
             <button
               type="button"
               (click)="selectClassFromMatrix(opt)"
               [disabled]="!opt.eligible"
               [ngClass]="selectedClassOption?.class_name === opt.class_name ? 'border-accent bg-accent/10' : 'border-hairline bg-panel'"
-              class="flex flex-col gap-1.5 rounded-md border p-2.5 text-left transition-colors cursor-pointer hover:border-accent/60 disabled:opacity-65 disabled:cursor-not-allowed disabled:hover:border-hairline">
+              class="flex flex-col gap-2 rounded-md border p-3 text-left transition-colors hover:border-accent/60 disabled:opacity-65 disabled:cursor-not-allowed disabled:hover:border-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep">
               <span class="flex w-full items-center justify-between gap-2">
                 <span class="text-body font-semibold text-ink">
                   {{ opt.class_name }}
