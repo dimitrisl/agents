@@ -148,6 +148,8 @@ def test_docker_and_nginx_production_configuration_invariants():
     assert "/api/v1/health" in dockerfile_backend
     assert "--proxy-headers" in dockerfile_backend
     assert "--forwarded-allow-ips=*" not in dockerfile_backend
+    assert "192.168.0.0/16" not in dockerfile_backend
+    assert "10.0.0.0/8" not in dockerfile_backend
 
     dockerignore = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8")
     assert "data/pdf_mappings" not in dockerignore
@@ -163,6 +165,11 @@ def test_docker_and_nginx_production_configuration_invariants():
     assert "proxy_set_header Upgrade $http_upgrade;" in nginx_conf
     assert 'proxy_set_header Connection "upgrade";' in nginx_conf
     assert "proxy_set_header Host $http_host;" in nginx_conf
+    assert "proxy_set_header X-Forwarded-For $remote_addr;" in nginx_conf
+    active_nginx = "\n".join(
+        line for line in nginx_conf.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "$proxy_add_x_forwarded_for" not in active_nginx
     assert "client_max_body_size 105M;" in nginx_conf
     assert "try_files $uri $uri/ /index.html;" in nginx_conf
     assert "ngsw-worker" in nginx_conf
@@ -175,4 +182,63 @@ def test_docker_and_nginx_production_configuration_invariants():
     assert "uploads_data:/app/data/uploads" in compose
     assert "module_pics_data:/app/data/module_pics" in compose
     assert '"127.0.0.1:${BACKEND_PORT:-8000}:8000"' in compose
+    assert "192.168.0.0/16" not in compose
+    assert "10.0.0.0/8" not in compose
     assert "campaign_assets" not in compose
+
+    manifest = json.loads(
+        (CLIENT_ROOT / "public" / "manifest.webmanifest").read_text(encoding="utf-8")
+    )
+    assert manifest["orientation"] == "any"
+
+
+@pytest.mark.anyio
+async def test_proxy_headers_does_not_trust_lan_clients_for_xff_spoofing(monkeypatch):
+    from fastapi import FastAPI, Request
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
+    from server.config import settings
+    from server.rate_limiter import get_real_ip
+
+    monkeypatch.setattr(settings, "TRUSTED_PROXIES", "127.0.0.1,::1,172.16.0.0/12")
+
+    probe_app = FastAPI()
+
+    @probe_app.get("/whoami")
+    def _whoami(request: Request):
+        return {
+            "real_ip": get_real_ip(request),
+            "client": request.client.host if request.client else None,
+        }
+
+    asgi = ProxyHeadersMiddleware(probe_app, trusted_hosts="127.0.0.1,::1,172.16.0.0/12")
+    captured = {}
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        if message["type"] == "http.response.body":
+            captured["body"] = json.loads(message["body"].decode("utf-8"))
+
+    # Simulate Docker Nginx (172.18.0.3) forwarding a LAN client (192.168.1.50) who forged an XFF header
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/whoami",
+        "raw_path": b"/whoami",
+        "query_string": b"",
+        "headers": [
+            (b"host", b"backend:8000"),
+            (b"x-forwarded-for", b"198.51.100.77, 192.168.1.50"),
+            (b"x-real-ip", b"192.168.1.50"),
+        ],
+        "client": ("172.18.0.3", 54321),
+        "server": ("172.18.0.4", 8000),
+    }
+    await asgi(scope, receive, send)
+    assert captured["body"]["client"] == "192.168.1.50"
+    assert captured["body"]["real_ip"] == "192.168.1.50"

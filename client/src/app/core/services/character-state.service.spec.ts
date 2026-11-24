@@ -129,6 +129,21 @@ describe('CharacterStateService', () => {
       expect(localStorage.getItem('phyrexian_forge_vault_snapshot')).toBeNull();
     });
 
+    it('rejects unowned legacy active snapshot when a user is signed in (#267)', () => {
+      localStorage.setItem('phyrexian_forge_active_char_snapshot', JSON.stringify(mockChar2024));
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-b', username: 'bob' }));
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(false);
+      expect(service.vaultStatus()).toBe('error');
+      expect(service.activeCharacter()).toBeNull();
+      expect(localStorage.getItem('phyrexian_forge_active_char_snapshot')).toBeNull();
+    });
+
     it('rejects unowned cached vault snapshot when a user is signed in (#267)', () => {
       localStorage.setItem(
         'phyrexian_forge_vault_snapshot',

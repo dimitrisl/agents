@@ -149,7 +149,7 @@
         size="sm"
         type="button"
         data-testid="sync-offline-vault-btn"
-        [loading]="charState.vaultStatus() === 'loading'"
+        [loading]="isSyncingVault()"
         (click)="syncOfflineVault()"
       >
         🔄 Sync Vault

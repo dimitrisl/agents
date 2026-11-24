@@ -294,6 +294,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   rollMode: RollMode = 'normal';
   rollVisibility = signal<SheetRollVisibility>('public');
   rollSyncWarning = signal<string | null>(null);
+  readonly isSyncingVault = signal(false);
   encounterState: any = null;
 
   portraitPrompt = '';
@@ -3918,9 +3919,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   syncOfflineVault(): void {
+    if (this.isSyncingVault()) return;
+    this.isSyncingVault.set(true);
     this.charState
       .loadCharacters()
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        finalize(() => this.isSyncingVault.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe({
         next: () => {
           this.rollToast.showMessage('📡 VAULT SYNCED', 'Reconnected and refreshed your character vault.');

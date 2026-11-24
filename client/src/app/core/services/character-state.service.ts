@@ -325,7 +325,7 @@ export class CharacterStateService {
     if (!legacy) return null;
     const legacyOwner = (legacy as any).owner_id ?? (legacy as any).user_id;
     const legacyMismatch = currentUserId
-      ? typeof legacyOwner === 'string' && legacyOwner !== currentUserId
+      ? typeof legacyOwner !== 'string' || legacyOwner !== currentUserId
       : typeof legacyOwner === 'string';
     if (legacyMismatch) {
       this.clearActiveSnapshot();

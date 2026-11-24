@@ -2500,6 +2500,13 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     syncBtn!.click();
     fixture.detectChanges();
 
+    expect(syncBtn!.disabled).toBe(true);
+    expect(syncBtn!.getAttribute('aria-busy')).toBe('true');
+
+    // Second click while in-flight is ignored
+    syncBtn!.click();
+    fixture.detectChanges();
+
     const resyncReq = http.expectOne((r) => r.method === 'GET' && r.url.endsWith('/characters'));
     resyncReq.flush({ characters: [charState.activeCharacter()], unreadable: [] });
     fixture.detectChanges();
