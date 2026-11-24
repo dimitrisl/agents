@@ -129,13 +129,40 @@
     </div>
   </div>
 
-  @if (charState.isOfflineCached()) {
+  @if (charState.isOfflineCached() || !charState.isOnline()) {
     <div
-      class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-body text-gold"
+      class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-2 text-label text-gold"
       role="status"
       data-testid="offline-cache-banner"
     >
-      <span>📦 Offline Copy — Showing locally cached character sheet while offline.</span>
+      <div class="flex min-w-0 flex-col gap-1">
+        @if (charState.isOfflineCached() || charState.characters().length > 0) {
+          <span class="font-semibold">
+            📡 Offline Read/Dice Mode — Viewing locally cached vault while offline.
+          </span>
+          <span class="text-micro text-muted">
+            Saved hero stats &amp; local dice rolls work offline; cloud sync resumes automatically on reconnect.
+          </span>
+        } @else {
+          <span class="font-semibold">
+            📡 Offline — Waiting for network connection.
+          </span>
+          <span class="text-micro text-muted">
+            No cached heroes are stored on this device yet; reconnect and sync to load your vault.
+          </span>
+        }
+      </div>
+      <button
+        forgeButton
+        variant="secondary"
+        size="sm"
+        type="button"
+        data-testid="sync-offline-vault-btn"
+        [loading]="isSyncingVault()"
+        (click)="syncOfflineVault()"
+      >
+        🔄 Sync Vault
+      </button>
     </div>
   }
 

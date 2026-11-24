@@ -2473,4 +2473,69 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
     fixture.destroy();
   });
+
+  it('displays offline cached vault banner and triggers vault resync on button click (#267)', () => {
+    const { http, charState, fixture } = setupPlayer({
+      char_id: 'offline-hero-267',
+      char_name: 'Kaelen',
+      active_campaign: undefined,
+    });
+
+    charState.isOfflineCached.set(true);
+    charState.isOnline.set(false);
+    fixture.detectChanges();
+
+    const banner: HTMLElement | null = fixture.nativeElement.querySelector(
+      '[data-testid="offline-cache-banner"]'
+    );
+    expect(banner).toBeTruthy();
+    expect(banner?.textContent).toContain('Offline Read/Dice Mode');
+
+    const syncBtn: HTMLButtonElement | null = fixture.nativeElement.querySelector(
+      '[data-testid="sync-offline-vault-btn"]'
+    );
+    expect(syncBtn).toBeTruthy();
+
+    charState.isOnline.set(true);
+    syncBtn!.click();
+    fixture.detectChanges();
+
+    expect(syncBtn!.disabled).toBe(true);
+    expect(syncBtn!.getAttribute('aria-busy')).toBe('true');
+
+    // Second click while in-flight is ignored
+    syncBtn!.click();
+    fixture.detectChanges();
+
+    const resyncReq = http.expectOne((r) => r.method === 'GET' && r.url.endsWith('/characters'));
+    resyncReq.flush({ characters: [charState.activeCharacter()], unreadable: [] });
+    fixture.detectChanges();
+
+    expect(charState.isOfflineCached()).toBe(false);
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="offline-cache-banner"]')
+    ).toBeNull();
+
+    // Cold offline with zero cached heroes renders neutral waiting copy
+    charState.characters.set([]);
+    charState.activeCharacter.set(null);
+    charState.isOnline.set(false);
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="offline-cache-banner"]')?.textContent
+    ).toContain('Waiting for network connection');
+
+    // Sync failure due to 401 does not emit a misleading STILL OFFLINE toast
+    const rollToast = TestBed.inject(RollToastService);
+    const toastSpy = jest.spyOn(rollToast, 'showMessage');
+    fixture.nativeElement.querySelector('[data-testid="sync-offline-vault-btn"]').click();
+    fixture.detectChanges();
+    http
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith('/characters'))
+      .flush({ detail: 'Expired' }, { status: 401, statusText: 'Unauthorized' });
+    expect(toastSpy).not.toHaveBeenCalledWith('📡 STILL OFFLINE', expect.anything());
+
+    http.match(() => true).forEach((r) => r.flush({}));
+    fixture.destroy();
+  });
 });

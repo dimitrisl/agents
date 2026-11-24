@@ -18,7 +18,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, filter, finalize, map, merge, switchMap, tap } from 'rxjs';
 import { isReportedGlobally } from '../../core/interceptors/error.interceptor';
@@ -294,6 +294,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   rollMode: RollMode = 'normal';
   rollVisibility = signal<SheetRollVisibility>('public');
   rollSyncWarning = signal<string | null>(null);
+  readonly isSyncingVault = signal(false);
   encounterState: any = null;
 
   portraitPrompt = '';
@@ -705,7 +706,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   private queryParamsSub?: Subscription;
 
   ngOnInit() {
-    this.charState.ensureLoaded().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+    this.charState
+      .ensureLoaded()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: () => {} });
 
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       this.mq = window.matchMedia('(max-width: 1023px)');
@@ -3912,5 +3916,31 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   getModifierString = (val: number): string => {
     return formatModifier(abilityModifier(val));
+  }
+
+  syncOfflineVault(): void {
+    if (this.isSyncingVault()) return;
+    this.isSyncingVault.set(true);
+    this.charState
+      .loadCharacters()
+      .pipe(
+        finalize(() => this.isSyncingVault.set(false)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: () => {
+          this.rollToast.showMessage('📡 VAULT SYNCED', 'Reconnected and refreshed your character vault.');
+        },
+        error: (err) => {
+          if (
+            err?.status === 401 ||
+            err?.status === 403 ||
+            (err instanceof HttpErrorResponse && isReportedGlobally(err) && err.status >= 500)
+          ) {
+            return;
+          }
+          this.rollToast.showMessage('📡 STILL OFFLINE', 'Could not reach the server. Staying in offline read/dice mode.');
+        },
+      });
   }
 }

@@ -27,6 +27,7 @@ tests/
 ├── test_spellcasting_and_short_rest_261.py # Ticket #261 Prepared Spells Cap (2014 vs 2024 & multiclass), Always-Prepared split separation, Ritual JSON tags, Natural Recovery edition gating, and Arcane/Natural Recovery + Harness Divine Power /short-rest API & validation
 ├── test_multiclass_level_up_264.py  # Ticket #264 Multiclass 13+ prerequisite enforcement (current & new classes), 2014 vs 2024 PHB Level 1 proficiency grants (armor, weapons, tools, Bard instrument & bonus skill pickers, saving-throw lock), primary subclass isolation, lowercase class canonicalization, and /forge/level-up-analysis & /forge/level-up-apply HTTP 400 guards & persistence
 ├── test_auth_lifecycle.py            # Ticket #266 Self-service /change-password (PBKDF2, demo exclusion, token_version revocation across HTTP/WS, rate limit), Admin one-time /reset-password (RBAC, self/admin/demo guards, forced change lock), and optional Discord OAuth2 (503/hidden gating, CSRF state+cookie, single-use #code exchange, verified email linking)
+├── test_pwa_and_health_267.py        # Ticket #267 GET /api/v1/health (200/503 without secret leakage + @limiter.exempt), PWA manifest/PNG icons & ngsw-config rules-only dataGroup safety invariants, and Docker/Nginx production configuration checks
 ├── test_mechanics*.py                # AC math, spell slots, saving throws, and conditions
 ├── test_dnd_rules_audit_fixes*.py    # 2014 vs. 2024 rule audit verifications
 ├── test_audit_critical_p0_p1_fixes.py # Regression suite for 17 code review & security audit fixes

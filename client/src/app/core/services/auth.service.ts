@@ -90,6 +90,7 @@ export class AuthService {
   }
 
   exchangeDiscordCode(code: string): Observable<AuthResponse> {
+    const prevUserId = this.currentUser()?.id ?? this.readCachedUser()?.id ?? null;
     this.sessionGeneration++;
     this.currentUser$ = null;
     localStorage.removeItem(this.TOKEN_STORAGE_KEY);
@@ -97,6 +98,10 @@ export class AuthService {
     this.token.set(null);
     this.currentUser.set(null);
     this.authStatus.set('anonymous');
+    if (prevUserId) {
+      this.charState.reset();
+    }
+    this.clearOfflineServiceWorkerDataCaches();
     return this.http.post<AuthResponse>(`${this.API_URL}/discord/exchange`, { code }).pipe(
       tap((res) => this.applyAuthSession(res))
     );
@@ -107,6 +112,12 @@ export class AuthService {
   }
 
   private applyAuthSession(res: AuthResponse): void {
+    const prevUserId = this.currentUser()?.id ?? this.readCachedUser()?.id ?? null;
+    const nextUserId = res.user?.id ?? null;
+    if (prevUserId && prevUserId !== nextUserId) {
+      this.charState.reset();
+      this.clearOfflineServiceWorkerDataCaches();
+    }
     this.sessionGeneration++;
     this.currentUser$ = null;
     this.persistSession(res);
@@ -179,7 +190,22 @@ export class AuthService {
     // The vault is cached for the whole session, so it has to be dropped here or
     // the next user to sign in would open onto the previous one's heroes.
     this.charState.reset();
+    this.clearOfflineServiceWorkerDataCaches();
     this.router.navigate(['/login']);
+  }
+
+  private clearOfflineServiceWorkerDataCaches(): void {
+    if (typeof caches === 'undefined' || typeof caches.keys !== 'function') return;
+    caches
+      .keys()
+      .then((keys) => {
+        for (const key of keys) {
+          if (key.includes(':data:')) {
+            void caches.delete(key);
+          }
+        }
+      })
+      .catch(() => {});
   }
 
   private readCachedUser(): User | null {

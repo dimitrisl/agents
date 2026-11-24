@@ -14,7 +14,10 @@ describe('CharacterStateService', () => {
   beforeEach(() => {
     localStorage.removeItem('phyrexian_forge_active_char');
     localStorage.removeItem('phyrexian_forge_active_char_snapshot');
+    localStorage.removeItem('phyrexian_forge_vault_snapshot');
     localStorage.removeItem('phyrexian_forge_active_edition');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('token');
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [CharacterStateService]
@@ -27,7 +30,10 @@ describe('CharacterStateService', () => {
     httpMock.verify();
     localStorage.removeItem('phyrexian_forge_active_char');
     localStorage.removeItem('phyrexian_forge_active_char_snapshot');
+    localStorage.removeItem('phyrexian_forge_vault_snapshot');
     localStorage.removeItem('phyrexian_forge_active_edition');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('token');
   });
 
   it('should be created', () => {
@@ -70,6 +76,206 @@ describe('CharacterStateService', () => {
       expect(service.isOfflineCached()).toBe(true);
       expect(service.vaultStatus()).toBe('loaded');
       expect(service.activeCharacter()).toEqual(mockChar2024);
+    });
+
+    it('saves and restores full multi-hero vault snapshot scoped to current user (#267)', () => {
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-a', username: 'alice' }));
+
+      service.loadCharacters().subscribe();
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .flush({ characters: [mockChar2014, mockChar2024], unreadable: [] });
+
+      const rawSnapshot = localStorage.getItem('phyrexian_forge_vault_snapshot');
+      expect(rawSnapshot).toBeTruthy();
+      const parsed = JSON.parse(rawSnapshot!);
+      expect(parsed.ownerId).toBe('user-a');
+      expect(parsed.characters.length).toBe(2);
+
+      // Simulate reboot / offline failure while same user is cached
+      service.characters.set([]);
+      service.activeCharacter.set(null);
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(true);
+      expect(service.cachedAt()).toBeTruthy();
+      expect(service.vaultStatus()).toBe('loaded');
+      expect(service.characters().map((c) => c.char_id)).toEqual(['c1', 'c2']);
+      expect(service.activeCharacter()?.char_id).toBe('c1');
+    });
+
+    it('rejects cached vault snapshot belonging to another user (#267)', () => {
+      localStorage.setItem(
+        'phyrexian_forge_vault_snapshot',
+        JSON.stringify({
+          ownerId: 'user-a',
+          savedAt: '2026-11-24T12:00:00.000Z',
+          characters: [mockChar2014],
+          unreadable: [],
+        })
+      );
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-b', username: 'bob' }));
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(false);
+      expect(service.vaultStatus()).toBe('error');
+      expect(service.characters()).toEqual([]);
+      expect(service.activeCharacter()).toBeNull();
+      expect(localStorage.getItem('phyrexian_forge_vault_snapshot')).toBeNull();
+    });
+
+    it('rejects unowned legacy active snapshot when a user is signed in (#267)', () => {
+      localStorage.setItem('phyrexian_forge_active_char_snapshot', JSON.stringify(mockChar2024));
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-b', username: 'bob' }));
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(false);
+      expect(service.vaultStatus()).toBe('error');
+      expect(service.activeCharacter()).toBeNull();
+      expect(localStorage.getItem('phyrexian_forge_active_char_snapshot')).toBeNull();
+    });
+
+    it('rejects unowned cached vault snapshot when a user is signed in (#267)', () => {
+      localStorage.setItem(
+        'phyrexian_forge_vault_snapshot',
+        JSON.stringify({
+          ownerId: null,
+          savedAt: '2026-11-24T12:00:00.000Z',
+          characters: [mockChar2014],
+          unreadable: [],
+        })
+      );
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-b', username: 'bob' }));
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(false);
+      expect(service.vaultStatus()).toBe('error');
+      expect(service.characters()).toEqual([]);
+      expect(localStorage.getItem('phyrexian_forge_vault_snapshot')).toBeNull();
+    });
+
+    it('preserves edition filtering parity when multi-hero offline vault has no matching edition (#267)', () => {
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-a', username: 'alice' }));
+      localStorage.setItem(
+        'phyrexian_forge_vault_snapshot',
+        JSON.stringify({
+          ownerId: 'user-a',
+          savedAt: '2026-11-24T12:00:00.000Z',
+          characters: [mockChar2014],
+          unreadable: [],
+        })
+      );
+      service.dndEdition.set('2024 Revision (5.5e)');
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(true);
+      expect(service.characters().length).toBe(1);
+      expect(service.filteredCharacters().length).toBe(0);
+      expect(service.activeCharacter()).toBeNull();
+    });
+
+    it('does not fall back to offline cache on 401/403 auth errors (#267)', () => {
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-a', username: 'alice' }));
+      localStorage.setItem(
+        'phyrexian_forge_vault_snapshot',
+        JSON.stringify({
+          ownerId: 'user-a',
+          savedAt: '2026-11-24T12:00:00.000Z',
+          characters: [mockChar2014],
+        })
+      );
+      service.characters.set([mockChar2014]);
+      service.activeCharacter.set(mockChar2014);
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .flush({ detail: 'Invalid token' }, { status: 401, statusText: 'Unauthorized' });
+
+      expect(service.isOfflineCached()).toBe(false);
+      expect(service.vaultStatus()).toBe('error');
+      expect(service.characters()).toEqual([]);
+      expect(service.activeCharacter()).toBeNull();
+    });
+
+    it('tracks browser offline/online events and auto-resyncs cached vault on reconnect (#267)', () => {
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-a', username: 'alice' }));
+      localStorage.setItem(
+        'phyrexian_forge_vault_snapshot',
+        JSON.stringify({
+          ownerId: 'user-a',
+          savedAt: '2026-11-24T12:00:00.000Z',
+          characters: [mockChar2014],
+        })
+      );
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+      expect(service.isOfflineCached()).toBe(true);
+
+      window.dispatchEvent(new Event('offline'));
+      expect(service.isOnline()).toBe(false);
+
+      window.dispatchEvent(new Event('online'));
+      expect(service.isOnline()).toBe(true);
+      const resyncReq = httpMock.expectOne(`${environment.apiBaseUrl}/characters`);
+      resyncReq.flush({ characters: [mockChar2014, mockChar2024], unreadable: [] });
+
+      expect(service.isOfflineCached()).toBe(false);
+      expect(service.cachedAt()).toBeNull();
+      expect(service.characters().length).toBe(2);
+    });
+
+    it('purges vault and active character snapshots on reset() (#267)', () => {
+      localStorage.setItem('phyrexian_forge_vault_snapshot', '{"characters":[]}');
+      localStorage.setItem('phyrexian_forge_active_char_snapshot', '{"char_id":"c1"}');
+      localStorage.setItem('phyrexian_forge_active_char', 'c1');
+      service.isOfflineCached.set(true);
+      service.cachedAt.set('2026-11-24T12:00:00.000Z');
+      service.characters.set([mockChar2014]);
+      service.activeCharacter.set(mockChar2014);
+
+      service.reset();
+
+      expect(localStorage.getItem('phyrexian_forge_vault_snapshot')).toBeNull();
+      expect(localStorage.getItem('phyrexian_forge_active_char_snapshot')).toBeNull();
+      expect(localStorage.getItem('phyrexian_forge_active_char')).toBeNull();
+      expect(service.isOfflineCached()).toBe(false);
+      expect(service.cachedAt()).toBeNull();
+      expect(service.characters()).toEqual([]);
+      expect(service.activeCharacter()).toBeNull();
+    });
+
+    it('does not trigger unauthenticated /characters fetch on online event after logout/401 (#267)', () => {
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .flush({ detail: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+      expect(service.vaultStatus()).toBe('idle');
+      window.dispatchEvent(new Event('online'));
+      httpMock.expectNone(`${environment.apiBaseUrl}/characters`);
     });
   });
 
