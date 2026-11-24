@@ -17,6 +17,7 @@ describe('CharacterStateService', () => {
     localStorage.removeItem('phyrexian_forge_vault_snapshot');
     localStorage.removeItem('phyrexian_forge_active_edition');
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('token');
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [CharacterStateService]
@@ -32,6 +33,7 @@ describe('CharacterStateService', () => {
     localStorage.removeItem('phyrexian_forge_vault_snapshot');
     localStorage.removeItem('phyrexian_forge_active_edition');
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('token');
   });
 
   it('should be created', () => {
@@ -263,6 +265,17 @@ describe('CharacterStateService', () => {
       expect(service.cachedAt()).toBeNull();
       expect(service.characters()).toEqual([]);
       expect(service.activeCharacter()).toBeNull();
+    });
+
+    it('does not trigger unauthenticated /characters fetch on online event after logout/401 (#267)', () => {
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .flush({ detail: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+      expect(service.vaultStatus()).toBe('idle');
+      window.dispatchEvent(new Event('online'));
+      httpMock.expectNone(`${environment.apiBaseUrl}/characters`);
     });
   });
 

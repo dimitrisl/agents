@@ -112,7 +112,8 @@ export class CharacterStateService {
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       const onOnline = () => {
         this.isOnline.set(true);
-        if (this.isOfflineCached() || this.vaultStatus() === 'error') {
+        const hasSession = Boolean(this.readCurrentUserId() || this.readStoredToken());
+        if (hasSession && (this.isOfflineCached() || this.vaultStatus() === 'error')) {
           this.loadCharacters().subscribe({ error: () => {} });
         }
       };
@@ -186,8 +187,9 @@ export class CharacterStateService {
           this.inFlight$ = null;
           const status = err?.status;
           if (status === 401 || status === 403) {
+            const hasSession = Boolean(this.readCurrentUserId() || this.readStoredToken());
             this.loaded = false;
-            this.vaultStatus.set('error');
+            this.vaultStatus.set(hasSession ? 'error' : 'idle');
             this.isOfflineCached.set(false);
             this.cachedAt.set(null);
             this.characters.set([]);
@@ -268,6 +270,14 @@ export class CharacterStateService {
       localStorage.setItem(ACTIVE_CHARACTER_KEY, id);
     } catch {
       // Not remembering the hero is harmless.
+    }
+  }
+
+  private readStoredToken(): string | null {
+    try {
+      return localStorage.getItem('token');
+    } catch {
+      return null;
     }
   }
 

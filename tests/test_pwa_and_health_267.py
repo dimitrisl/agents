@@ -1,6 +1,7 @@
 """Verification tests for #267: Health probe, PWA config/icons, and Docker/Nginx stack."""
 
 import json
+import struct
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -94,8 +95,14 @@ def test_pwa_manifest_and_png_icons_exist_on_disk():
         rel_src = icon["src"].lstrip("/")
         icon_file = CLIENT_ROOT / "public" / rel_src
         assert icon_file.is_file(), f"Missing manifest icon: {icon_file}"
-        header = icon_file.read_bytes()[:8]
-        assert header == b"\x89PNG\r\n\x1a\n", f"{icon_file} is not a valid PNG"
+        raw = icon_file.read_bytes()
+        assert raw[:8] == b"\x89PNG\r\n\x1a\n", f"{icon_file} is not a valid PNG"
+        assert raw[12:16] == b"IHDR", f"{icon_file} missing IHDR chunk"
+        width, height = struct.unpack(">II", raw[16:24])
+        exp_w, exp_h = (int(dim) for dim in icon["sizes"].split("x", 1))
+        assert (width, height) == (exp_w, exp_h), (
+            f"{icon_file} dimensions {width}x{height} != manifest {icon['sizes']}"
+        )
         seen_variants.add((icon["sizes"], icon["purpose"]))
 
     assert ("192x192", "any") in seen_variants
@@ -174,7 +181,9 @@ def test_docker_and_nginx_production_configuration_invariants():
     assert "try_files $uri $uri/ /index.html;" in nginx_conf
     assert "ngsw-worker" in nginx_conf
     assert "ngsw" in nginx_conf
-    assert nginx_conf.count('add_header X-Content-Type-Options "nosniff" always;') >= 3
+    assert nginx_conf.count('add_header X-Content-Type-Options "nosniff" always;') >= 4
+    assert "location ~* ^/assets/" in nginx_conf
+    assert 'add_header Cache-Control "public, max-age=86400" always;' in nginx_conf
 
     compose = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     assert "image: mongo:7" in compose

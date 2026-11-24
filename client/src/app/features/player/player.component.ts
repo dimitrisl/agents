@@ -18,7 +18,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EMPTY, Observable, Subject, Subscription, catchError, concatMap, debounceTime, defer, filter, finalize, map, merge, switchMap, tap } from 'rxjs';
 import { isReportedGlobally } from '../../core/interceptors/error.interceptor';
@@ -3931,7 +3931,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         next: () => {
           this.rollToast.showMessage('📡 VAULT SYNCED', 'Reconnected and refreshed your character vault.');
         },
-        error: () => {
+        error: (err) => {
+          if (
+            err?.status === 401 ||
+            err?.status === 403 ||
+            (err instanceof HttpErrorResponse && isReportedGlobally(err) && err.status >= 500)
+          ) {
+            return;
+          }
           this.rollToast.showMessage('📡 STILL OFFLINE', 'Could not reach the server. Staying in offline read/dice mode.');
         },
       });

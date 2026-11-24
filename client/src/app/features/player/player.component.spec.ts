@@ -2516,6 +2516,25 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
       fixture.nativeElement.querySelector('[data-testid="offline-cache-banner"]')
     ).toBeNull();
 
+    // Cold offline with zero cached heroes renders neutral waiting copy
+    charState.characters.set([]);
+    charState.activeCharacter.set(null);
+    charState.isOnline.set(false);
+    fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="offline-cache-banner"]')?.textContent
+    ).toContain('Waiting for network connection');
+
+    // Sync failure due to 401 does not emit a misleading STILL OFFLINE toast
+    const rollToast = TestBed.inject(RollToastService);
+    const toastSpy = jest.spyOn(rollToast, 'showMessage');
+    fixture.nativeElement.querySelector('[data-testid="sync-offline-vault-btn"]').click();
+    fixture.detectChanges();
+    http
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith('/characters'))
+      .flush({ detail: 'Expired' }, { status: 401, statusText: 'Unauthorized' });
+    expect(toastSpy).not.toHaveBeenCalledWith('📡 STILL OFFLINE', expect.anything());
+
     http.match(() => true).forEach((r) => r.flush({}));
     fixture.destroy();
   });
