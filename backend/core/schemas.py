@@ -586,6 +586,18 @@ class LevelUpChoice(BaseModel):
     feat_metadata: Optional[Dict[str, LevelUpFeatMetadata]] = None
 
 
+class MulticlassOptionSchema(BaseModel):
+    class_name: str
+    is_existing: bool = False
+    current_level: int = 0
+    target_level: int = 1
+    hit_die: int = 8
+    eligible: bool = True
+    prerequisite_summary: str = ""
+    missing_prerequisites: List[str] = Field(default_factory=list)
+    granted_proficiencies: List[str] = Field(default_factory=list)
+
+
 class LevelUpAnalysisSchema(BaseModel):
     automatic_changes: List[FeatureTrait] = Field(default_factory=list)
     hp_increase: int
@@ -594,6 +606,7 @@ class LevelUpAnalysisSchema(BaseModel):
     choices_required: List[LevelUpChoice] = Field(default_factory=list)
     replaceable_spells: List[str] = Field(default_factory=list)
     spell_swap_options: List[str] = Field(default_factory=list)
+    multiclass_options: List[MulticlassOptionSchema] = Field(default_factory=list)
     updated_proficiency_bonus: Optional[int] = None
     updated_spell_slots: Optional[Dict[str, int]] = None
     new_spells_known: List[str] = Field(default_factory=list)

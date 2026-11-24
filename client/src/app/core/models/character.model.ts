@@ -246,6 +246,18 @@ export interface LevelUpChoice {
   feat_metadata?: Record<string, LevelUpFeatMetadata>;
 }
 
+export interface MulticlassOption {
+  class_name: string;
+  is_existing: boolean;
+  current_level: number;
+  target_level: number;
+  hit_die: number;
+  eligible: boolean;
+  prerequisite_summary: string;
+  missing_prerequisites: string[];
+  granted_proficiencies: string[];
+}
+
 export interface LevelUpAnalysis {
   automatic_changes: FeatureTrait[];
   hp_increase: number;
@@ -254,6 +266,7 @@ export interface LevelUpAnalysis {
   choices_required: LevelUpChoice[];
   replaceable_spells?: string[];
   spell_swap_options?: string[];
+  multiclass_options?: MulticlassOption[];
   updated_proficiency_bonus?: number;
   updated_spell_slots?: Record<string, number>;
   new_spells_known?: string[];

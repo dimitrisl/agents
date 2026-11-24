@@ -1,33 +1,54 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, Output, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+  inject,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { EMPTY, Subject, catchError, switchMap } from 'rxjs';
-import { ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent } from '../../../../shared/ui';
+import { EMPTY, Subject, catchError, switchMap, takeUntil } from 'rxjs';
+import { ForgeBadgeComponent, ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent } from '../../../../shared/ui';
 import {
   LevelUpAnalysis,
   LevelUpBuildRecommendation,
   LevelUpChoice,
   LevelUpFeatMetadata,
   LevelUpRecommendationsResponse,
+  MulticlassOption,
   CharacterSchema,
 } from '../../../../core/models/character.model';
 import { DiceService } from '../../../../core/services/dice.service';
-import { abilityModifier, is2024Edition } from '../../../../core/rules';
+import { abilityModifier, getMulticlassEligibility, is2024Edition } from '../../../../core/rules';
 import { hitDieSidesFor } from '../../../../core/data/class-combat.data';
 import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-level-up-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ForgeButtonDirective, ForgeModalComponent, ForgeSelectDirective, ForgeSpinnerComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ForgeBadgeComponent,
+    ForgeButtonDirective,
+    ForgeModalComponent,
+    ForgeSelectDirective,
+    ForgeSpinnerComponent,
+  ],
   templateUrl: './level-up-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LevelUpModalComponent {
+export class LevelUpModalComponent implements OnChanges {
   private readonly destroyRef = inject(DestroyRef);
   private readonly recommendationsTrigger$ = new Subject<void>();
+  private readonly cancelRecommendations$ = new Subject<void>();
 
   constructor(
     private dice: DiceService,
@@ -45,6 +66,7 @@ export class LevelUpModalComponent {
               target_level: this.planningClassLevel,
             })
             .pipe(
+              takeUntil(this.cancelRecommendations$),
               catchError(() => {
                 this.recommendationsError =
                   'Could not load build recommendations at this time. You can still proceed with manual choices.';
@@ -68,6 +90,8 @@ export class LevelUpModalComponent {
   @Input() nextLevel = 1;
   @Input() levelUpAnalysis: LevelUpAnalysis | null = null;
   @Input() userChoices: Record<string, any> = {};
+  @Input() isAnalyzing = false;
+  @Input() isApplying = false;
 
   @Output() openChange = new EventEmitter<boolean>();
   @Output() applyLevelUp = new EventEmitter<void>();
@@ -77,7 +101,27 @@ export class LevelUpModalComponent {
   isLoadingRecommendations = false;
   recommendationsError: string | null = null;
   showRecommendations = false;
+  showMulticlassMatrix = false;
   planningLevel: number | null = null;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    const closedModal = changes['open'] && !this.open;
+    const prevChar = changes['character']?.previousValue as CharacterSchema | null | undefined;
+    const currChar = changes['character']?.currentValue as CharacterSchema | null | undefined;
+    const prevKey = prevChar ? (prevChar.char_id || prevChar.char_name || '') : null;
+    const currKey = currChar ? (currChar.char_id || currChar.char_name || '') : null;
+    const switchedHero = Boolean(changes['character'] && prevChar && currKey !== prevKey);
+
+    if (closedModal || switchedHero) {
+      this.cancelRecommendations$.next();
+      this.isLoadingRecommendations = false;
+      this.showMulticlassMatrix = false;
+      this.showRecommendations = false;
+      this.buildRecommendations = [];
+      this.recommendationsError = null;
+      this.planningLevel = null;
+    }
+  }
 
   readonly abilityStatOptions = [
     { code: 'STR', label: 'Strength (STR)' },
@@ -101,33 +145,116 @@ export class LevelUpModalComponent {
     ];
   }
 
-  get availableClasses() {
-    const all = [
-      "Artificer",
-      "Barbarian",
-      "Bard",
-      "Cleric",
-      "Druid",
-      "Fighter",
-      "Monk",
-      "Paladin",
-      "Ranger",
-      "Rogue",
-      "Sorcerer",
-      "Warlock",
-      "Wizard",
-    ];
-    const current = this.characterClasses.map((c) => (c.class_name || '').toLowerCase());
-    return all.filter((c) => !current.includes(c.toLowerCase()));
+  get multiclassOptions(): MulticlassOption[] {
+    if (this.levelUpAnalysis?.multiclass_options?.length) {
+      return this.levelUpAnalysis.multiclass_options;
+    }
+    return getMulticlassEligibility(this.character);
   }
 
-  get levelUpClass() {
+  get existingClassOptions(): MulticlassOption[] {
+    const canonical = this.multiclassOptions.filter((opt) => opt.is_existing);
+    const seen = new Set(canonical.map((opt) => opt.class_name.trim().toLowerCase()));
+    const custom: MulticlassOption[] = [];
+    for (const cls of this.characterClasses) {
+      const cname = (cls.class_name || '').trim();
+      const low = cname.toLowerCase();
+      if (!cname || seen.has(low)) continue;
+      seen.add(low);
+      const curLvl = Math.max(1, Number(cls.level || 1));
+      custom.push({
+        class_name: cname,
+        is_existing: true,
+        current_level: curLvl,
+        target_level: curLvl + 1,
+        hit_die: hitDieSidesFor(cname),
+        eligible: true,
+        prerequisite_summary: 'Current class',
+        missing_prerequisites: [],
+        granted_proficiencies: [],
+      });
+    }
+    return [...canonical, ...custom];
+  }
+
+  get newMulticlassOptions(): MulticlassOption[] {
+    return this.multiclassOptions.filter((opt) => !opt.is_existing);
+  }
+
+  get matrixOptions(): MulticlassOption[] {
+    return [...this.existingClassOptions, ...this.newMulticlassOptions];
+  }
+
+  get eligibleNewClassCount(): number {
+    return this.newMulticlassOptions.filter((opt) => opt.eligible).length;
+  }
+
+  private get rawLevelUpClass(): string {
     return (
       this.userChoices['level_up_class'] ||
       this.characterClasses[0]?.class_name ||
       this.character?.char_class ||
       'Fighter'
     );
+  }
+
+  get selectedClassOption(): MulticlassOption | null {
+    const target = this.rawLevelUpClass.trim().toLowerCase();
+    return (
+      this.matrixOptions.find(
+        (opt) => opt.class_name.trim().toLowerCase() === target,
+      ) ?? null
+    );
+  }
+
+  get isMulticlassingIntoNewClass(): boolean {
+    const selected = this.selectedClassOption;
+    if (selected) {
+      return !selected.is_existing;
+    }
+    const target = this.rawLevelUpClass.trim().toLowerCase();
+    return !this.characterClasses.some(
+      (c) => (c.class_name || '').trim().toLowerCase() === target,
+    );
+  }
+
+  get currentClassPrereqWarning(): string | null {
+    const existingNames = new Set(
+      this.existingClassOptions.map((c) => c.class_name.trim().toLowerCase()),
+    );
+    const reasons = new Set<string>();
+    for (const opt of this.newMulticlassOptions) {
+      for (const reason of opt.missing_prerequisites || []) {
+        const beforeReq = (reason.split(' requires ')[0] || '').trim().toLowerCase();
+        const normalized = beforeReq.replace(/^current class\s+/, '');
+        if (beforeReq.startsWith('current class ') || existingNames.has(normalized)) {
+          reasons.add(reason);
+        }
+      }
+    }
+    if (reasons.size === 0) return null;
+    return `Multiclassing out is locked until existing class prerequisites are met: ${Array.from(reasons).join('; ')}.`;
+  }
+
+  get availableClasses(): string[] {
+    return this.newMulticlassOptions.map((opt) => opt.class_name);
+  }
+
+  hitDieFor(className: string): number {
+    return hitDieSidesFor(className);
+  }
+
+  toggleMulticlassMatrix(): void {
+    this.showMulticlassMatrix = !this.showMulticlassMatrix;
+  }
+
+  selectClassFromMatrix(opt: MulticlassOption): void {
+    if (!opt.eligible) return;
+    this.onClassChange(opt.class_name);
+  }
+
+  get levelUpClass() {
+    return this.selectedClassOption?.class_name || this.rawLevelUpClass;
   }
 
   get targetClassLevel() {
@@ -190,6 +317,13 @@ export class LevelUpModalComponent {
   }
 
   onClassChange(val: string) {
+    if (this.isApplying) return;
+    const targetOption = this.multiclassOptions.find(
+      (o) => o.class_name.trim().toLowerCase() === (val || '').trim().toLowerCase(),
+    );
+    if (targetOption && !targetOption.is_existing && !targetOption.eligible) {
+      return;
+    }
     // When changing class, reset other choices like hp_method to avoid mismatched hp increases
     this.planningLevel = null;
     this.userChoices = { 'level_up_class': val };
@@ -465,6 +599,19 @@ export class LevelUpModalComponent {
       }
       return false;
     });
+  }
+
+  get hasIncompleteMulticlassSkillChoice(): boolean {
+    return this.hasIncompleteMulticlassChoices;
+  }
+
+  get hasIncompleteMulticlassChoices(): boolean {
+    const required = this.levelUpAnalysis?.choices_required || [];
+    return required.some(
+      (choice, i) =>
+        (choice.type === 'skill' || choice.type === 'tool') &&
+        !this.userChoices[`${choice.type}_${i}`],
+    );
   }
 
   selectHpAverage() {

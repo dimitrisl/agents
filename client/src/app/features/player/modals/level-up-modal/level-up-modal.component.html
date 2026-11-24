@@ -1,16 +1,151 @@
 <forge-modal [open]="open" (openChange)="openChange.emit($event)" [title]="'⚡ Level Up: ' + levelUpClass + ' Level ' + targetClassLevel + ' (Total Lvl ' + nextLevel + ')'" maxWidth="820px">
   <p class="mb-4 text-body text-muted">Your character has reached a new level! Review the changes below.</p>
 
-  <div class="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-hairline bg-tile p-4">
-    <span class="text-label font-semibold uppercase text-muted">Class to Level Up:</span>
-    <select forgeSelect [ngModel]="levelUpClass" (ngModelChange)="onClassChange($event)" class="min-w-50">
-      <optgroup label="Current Classes">
-        <option *ngFor="let cls of characterClasses" [value]="cls.class_name">{{ cls.class_name }} (Current: {{ cls.level }})</option>
-      </optgroup>
-      <optgroup label="Multiclass (New)">
-        <option *ngFor="let cls of availableClasses" [value]="cls">{{ cls }}</option>
-      </optgroup>
-    </select>
+  <div class="mb-4 flex flex-col gap-3 rounded-xl border border-hairline bg-panel p-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
+        <label for="level-up-class-select" class="text-micro font-semibold uppercase text-muted shrink-0">Class to Level Up:</label>
+        <select
+          id="level-up-class-select"
+          forgeSelect
+          [ngModel]="levelUpClass"
+          (ngModelChange)="onClassChange($event)"
+          [disabled]="isApplying"
+          class="min-w-0 w-full flex-1">
+          <optgroup label="Current Classes">
+            @if (existingClassOptions.length > 0) {
+              @for (opt of existingClassOptions; track opt.class_name) {
+                <option [value]="opt.class_name">
+                  {{ opt.class_name }} (Level {{ opt.current_level }} → {{ opt.target_level }} · d{{ opt.hit_die }})
+                </option>
+              }
+            } @else {
+              @for (cls of characterClasses; track cls.class_name) {
+                <option [value]="cls.class_name">
+                  {{ cls.class_name }} (Current: {{ cls.level }} · d{{ hitDieFor(cls.class_name) }})
+                </option>
+              }
+            }
+          </optgroup>
+          <optgroup label="Multiclass into New Class (Level 1)">
+            @for (opt of newMulticlassOptions; track opt.class_name) {
+              <option [value]="opt.class_name" [disabled]="!opt.eligible">
+                {{ opt.eligible ? '✓' : '🔒' }} {{ opt.class_name }} · d{{ opt.hit_die }} ({{ opt.eligible ? opt.prerequisite_summary : 'Requires ' + opt.missing_prerequisites.join('; ') }})
+              </option>
+            }
+          </optgroup>
+        </select>
+      </div>
+
+      @if (newMulticlassOptions.length > 0) {
+        <button
+          forgeButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          class="shrink-0"
+          [disabled]="isApplying"
+          (click)="toggleMulticlassMatrix()"
+          [attr.aria-expanded]="showMulticlassMatrix"
+          data-testid="toggle-multiclass-matrix">
+          {{ showMulticlassMatrix ? 'Hide 13-Class Matrix' : 'Class Eligibility Matrix (' + eligibleNewClassCount + '/' + newMulticlassOptions.length + ')' }}
+        </button>
+      }
+    </div>
+
+    @if (isAnalyzing) {
+      <div class="flex items-center gap-2 text-label text-muted" data-testid="level-up-analyzing-indicator">
+        <forge-spinner size="sm"></forge-spinner>
+        <span>Updating class analysis...</span>
+      </div>
+    }
+
+    @if (currentClassPrereqWarning) {
+      <div
+        class="rounded-xl bg-red/10 px-3 py-2 text-label text-red"
+        data-testid="multiclass-current-warning">
+        🔒 {{ currentClassPrereqWarning }}
+      </div>
+    }
+
+    @if (isMulticlassingIntoNewClass && selectedClassOption; as mc) {
+      <div
+        class="flex flex-col gap-2 rounded-xl bg-accent/10 p-3"
+        data-testid="multiclass-summary-card">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-body font-bold text-ink">Multiclassing into {{ mc.class_name }} (Level 1)</span>
+            <forge-badge tone="accent" size="sm">Hit Die d{{ mc.hit_die }}</forge-badge>
+            <forge-badge tone="success" size="sm">✓ Meets {{ mc.prerequisite_summary }}</forge-badge>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-micro font-semibold uppercase text-muted mr-1">PHB Proficiencies Granted:</span>
+          @if (mc.granted_proficiencies.length > 0) {
+            @for (prof of mc.granted_proficiencies; track prof) {
+              <forge-badge tone="gold" size="sm">{{ prof }}</forge-badge>
+            }
+          } @else {
+            <span class="text-label text-muted">None (no armor, weapon, tool, or skill proficiencies gained on multiclass entry).</span>
+          }
+        </div>
+        <p class="m-0 text-label text-muted">
+          Saving throw proficiencies remain locked to your starting class ({{ character?.saving_throws?.join(', ') || 'original class' }}).
+        </p>
+      </div>
+    }
+
+    @if (showMulticlassMatrix) {
+      <div class="flex flex-col gap-2 pt-3 border-t border-hairline/70" data-testid="multiclass-eligibility-matrix">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-micro font-semibold uppercase tracking-wider text-muted">
+            Multiclass Eligibility Overview ({{ matrixOptions.length }} Classes)
+          </span>
+          <span class="text-label text-muted">
+            Click an eligible class to switch target
+          </span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          @for (opt of matrixOptions; track opt.class_name) {
+            <button
+              type="button"
+              (click)="selectClassFromMatrix(opt)"
+              [disabled]="!opt.eligible || isApplying"
+              [ngClass]="selectedClassOption?.class_name === opt.class_name ? 'border border-accent bg-accent/10' : 'bg-tile'"
+              class="flex flex-col gap-2 rounded-xl p-3 text-left transition-colors hover:bg-surface-hover disabled:opacity-65 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep">
+              <span class="flex w-full items-center justify-between gap-2">
+                <span class="text-body font-semibold text-ink">
+                  {{ opt.class_name }}
+                </span>
+                @if (opt.is_existing) {
+                  <forge-badge tone="accent" size="sm">Lvl {{ opt.current_level }} → {{ opt.target_level }} · d{{ opt.hit_die }}</forge-badge>
+                } @else if (opt.eligible) {
+                  <forge-badge tone="success" size="sm">✓ Lvl 1 · d{{ opt.hit_die }}</forge-badge>
+                } @else {
+                  <forge-badge tone="danger" size="sm">🔒 Locked · d{{ opt.hit_die }}</forge-badge>
+                }
+              </span>
+              <span class="block text-label text-muted">
+                Prereq: <span class="text-ink font-medium">{{ opt.prerequisite_summary }}</span>
+              </span>
+              @if (!opt.eligible && opt.missing_prerequisites.length > 0) {
+                <span class="block text-label text-red">
+                  Missing: {{ opt.missing_prerequisites.join('; ') }}
+                </span>
+              } @else if (!opt.is_existing && opt.granted_proficiencies.length > 0) {
+                <span class="block text-label text-gold">
+                  Grants: {{ opt.granted_proficiencies.join(', ') }}
+                </span>
+              } @else if (!opt.is_existing) {
+                <span class="block text-label text-muted">
+                  Grants: No additional proficiencies
+                </span>
+              }
+            </button>
+          }
+        </div>
+      </div>
+    }
   </div>
 
   <!-- 💡 Build Advisor (Up to 3 Suggestions) -->
@@ -207,6 +342,12 @@
           <option [value]="undefined" disabled selected>Select an option...</option>
           <option *ngFor="let opt of availableOptionsFor(choice, i)" [value]="opt">{{ opt }}</option>
         </select>
+        @if (choice.type === 'skill' && !userChoices[choice.type + '_' + i]) {
+          <span class="text-label text-gold">Choose 1 PHB multiclass bonus skill to continue.</span>
+        }
+        @if (choice.type === 'tool' && !userChoices[choice.type + '_' + i]) {
+          <span class="text-label text-gold">Choose 1 PHB Musical Instrument to continue.</span>
+        }
         <p *ngIf="choice.ai_recommendation" class="text-micro text-muted">💡 AI Suggests: {{ choice.ai_recommendation }}</p>
 
         <!-- ASI / Variable Half-Feat Stat Pickers -->
@@ -326,7 +467,7 @@
   }
 
   <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
-    <button forgeButton variant="secondary" type="button" (click)="openChange.emit(false)">Cancel</button>
-    <button forgeButton variant="primary" type="button" [disabled]="hasIncompleteStatChoices || hasDuplicateSiblingChoices || hasIncompleteSpellSwap" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
+    <button forgeButton variant="secondary" type="button" [disabled]="isApplying" (click)="openChange.emit(false)">Cancel</button>
+    <button forgeButton variant="primary" type="button" [loading]="isApplying" [disabled]="isAnalyzing || isApplying || hasIncompleteStatChoices || hasDuplicateSiblingChoices || hasIncompleteSpellSwap || hasIncompleteMulticlassChoices" (click)="applyLevelUp.emit()">✅ Apply Level Up</button>
   </div>
 </forge-modal>

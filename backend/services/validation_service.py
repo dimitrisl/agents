@@ -455,11 +455,316 @@ _MULTICLASS_WEAPON_PROFS_2024: dict[str, tuple[str, ...]] = {
     "warlock": (),
 }
 
+ALL_CANONICAL_CLASSES: tuple[str, ...] = (
+    "Artificer",
+    "Barbarian",
+    "Bard",
+    "Cleric",
+    "Druid",
+    "Fighter",
+    "Monk",
+    "Paladin",
+    "Ranger",
+    "Rogue",
+    "Sorcerer",
+    "Warlock",
+    "Wizard",
+)
+
+_CLASS_HIT_DICE: dict[str, int] = {
+    "artificer": 8,
+    "barbarian": 12,
+    "bard": 8,
+    "cleric": 8,
+    "druid": 8,
+    "fighter": 10,
+    "monk": 8,
+    "paladin": 10,
+    "ranger": 10,
+    "rogue": 8,
+    "sorcerer": 6,
+    "warlock": 8,
+    "wizard": 6,
+}
+
+# Tuple per class: (display summary, mode ('all'|'any'), required_stats)
+_MULTICLASS_STAT_RULES: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    "artificer": ("INT 13", "all", ("INT",)),
+    "barbarian": ("STR 13", "all", ("STR",)),
+    "bard": ("CHA 13", "all", ("CHA",)),
+    "cleric": ("WIS 13", "all", ("WIS",)),
+    "druid": ("WIS 13", "all", ("WIS",)),
+    "fighter": ("STR 13 or DEX 13", "any", ("STR", "DEX")),
+    "monk": ("DEX 13 & WIS 13", "all", ("DEX", "WIS")),
+    "paladin": ("STR 13 & CHA 13", "all", ("STR", "CHA")),
+    "ranger": ("DEX 13 & WIS 13", "all", ("DEX", "WIS")),
+    "rogue": ("DEX 13", "all", ("DEX",)),
+    "sorcerer": ("CHA 13", "all", ("CHA",)),
+    "warlock": ("CHA 13", "all", ("CHA",)),
+    "wizard": ("INT 13", "all", ("INT",)),
+}
+
+_MULTICLASS_TOOL_PROFS: dict[str, tuple[str, ...]] = {
+    "artificer": ("Thieves' Tools", "Tinker's Tools"),
+    "rogue": ("Thieves' Tools",),
+}
+
+_MULTICLASS_TOOL_GRANT_LABELS: dict[str, tuple[str, ...]] = {
+    "artificer": ("Thieves' Tools", "Tinker's Tools"),
+    "bard": ("One Musical Instrument",),
+    "rogue": ("Thieves' Tools",),
+}
+
+_PHB_MUSICAL_INSTRUMENTS: tuple[str, ...] = (
+    "Bagpipes",
+    "Drum",
+    "Dulcimer",
+    "Flute",
+    "Horn",
+    "Lute",
+    "Lyre",
+    "Pan Flute",
+    "Shawm",
+    "Viol",
+)
+
+_MULTICLASS_SKILL_GRANT_LABELS: dict[str, str] = {
+    "bard": "1 Skill (Any)",
+    "ranger": "1 Ranger Skill",
+    "rogue": "1 Rogue Skill",
+}
+
+_ALL_SKILLS_LIST: tuple[str, ...] = (
+    "Acrobatics",
+    "Animal Handling",
+    "Arcana",
+    "Athletics",
+    "Deception",
+    "History",
+    "Insight",
+    "Intimidation",
+    "Investigation",
+    "Medicine",
+    "Nature",
+    "Perception",
+    "Performance",
+    "Persuasion",
+    "Religion",
+    "Sleight of Hand",
+    "Stealth",
+    "Survival",
+)
+
+_CLASS_SKILL_LISTS: dict[str, tuple[str, ...]] = {
+    "bard": _ALL_SKILLS_LIST,
+    "ranger": (
+        "Animal Handling",
+        "Athletics",
+        "Insight",
+        "Investigation",
+        "Nature",
+        "Perception",
+        "Stealth",
+        "Survival",
+    ),
+    "rogue": (
+        "Acrobatics",
+        "Athletics",
+        "Deception",
+        "Insight",
+        "Intimidation",
+        "Investigation",
+        "Perception",
+        "Performance",
+        "Persuasion",
+        "Sleight of Hand",
+        "Stealth",
+    ),
+}
+
+
+def _coerce_stats_dict(raw_stats: Any) -> Dict[str, int]:
+    if hasattr(raw_stats, "model_dump"):
+        raw_stats = raw_stats.model_dump()
+    elif raw_stats is not None and not isinstance(raw_stats, dict):
+        raw_stats = {
+            k: getattr(raw_stats, k, 10) for k in ("STR", "DEX", "CON", "INT", "WIS", "CHA")
+        }
+    out: Dict[str, int] = {}
+    for k in ("STR", "DEX", "CON", "INT", "WIS", "CHA"):
+        try:
+            out[k] = int((raw_stats or {}).get(k, 10) or 10)
+        except (TypeError, ValueError):
+            out[k] = 10
+    return out
+
+
+def check_class_multiclass_prereq(
+    class_name: str, stats: Dict[str, Any], *, prefix: str = ""
+) -> tuple[bool, list[str]]:
+    """Evaluate 5e 13+ multiclass ability score prerequisite for a single class."""
+    c_low = str(class_name or "").strip().lower()
+    rule = _MULTICLASS_STAT_RULES.get(c_low)
+    if not rule:
+        return True, []
+    summary, mode, stat_keys = rule
+    coerced = _coerce_stats_dict(stats)
+    canon = next((c for c in ALL_CANONICAL_CLASSES if c.lower() == c_low), class_name.title())
+    label = f"{prefix}{canon}" if prefix else canon
+
+    if mode == "any":
+        if any(coerced.get(k, 0) >= 13 for k in stat_keys):
+            return True, []
+        have = ", ".join(f"{k} {coerced.get(k, 0)}" for k in stat_keys)
+        return False, [f"{label} requires {summary} (have {have})"]
+
+    missing_keys = [k for k in stat_keys if coerced.get(k, 0) < 13]
+    if not missing_keys:
+        return True, []
+    have = ", ".join(f"{k} {coerced.get(k, 0)}" for k in missing_keys)
+    req = " & ".join(f"{k} 13" for k in missing_keys)
+    return False, [f"{label} requires {req} (have {have})"]
+
+
+def canonicalize_class_name(class_name: str) -> str:
+    """Return the canonical Title Case D&D class name when recognized, else trimmed input."""
+    clean = str(class_name or "").strip()
+    if not clean:
+        return clean
+    low = clean.lower()
+    for canon in ALL_CANONICAL_CLASSES:
+        if canon.lower() == low:
+            return canon
+    return clean
+
+
+def get_multiclass_tool_proficiencies(class_name: str) -> list[str]:
+    return list(_MULTICLASS_TOOL_PROFS.get(str(class_name or "").strip().lower(), ()))
+
+
+def get_multiclass_instrument_options(existing_tools: Any = None) -> list[str]:
+    owned_low = {
+        str(t or "").strip().lower() for t in (existing_tools or []) if str(t or "").strip()
+    }
+    return [inst for inst in _PHB_MUSICAL_INSTRUMENTS if inst.lower() not in owned_low]
+
+
+def get_multiclass_skill_options(class_name: str, existing_skills: Any = None) -> list[str]:
+    allowed = _CLASS_SKILL_LISTS.get(str(class_name or "").strip().lower(), ())
+    if not allowed:
+        return []
+    owned_low = {
+        str(s or "").strip().lower() for s in (existing_skills or []) if str(s or "").strip()
+    }
+    return [s for s in allowed if s.lower() not in owned_low]
+
+
+def get_multiclass_granted_proficiencies(
+    class_name: str, edition: str = "2014 Edition"
+) -> list[str]:
+    """Return PHB Multiclassing proficiency grants (no saving throws) for entering class_name at L1."""
+    c_low = str(class_name or "").strip().lower()
+    is_2024 = "2024" in str(edition or "")
+    armor_tbl = _MULTICLASS_ARMOR_PROFS_2024 if is_2024 else _MULTICLASS_ARMOR_PROFS_2014
+    weapon_tbl = _MULTICLASS_WEAPON_PROFS_2024 if is_2024 else _MULTICLASS_WEAPON_PROFS_2014
+
+    def _title(tok: str) -> str:
+        return " ".join(w.capitalize() for w in tok.split())
+
+    grants: list[str] = [_title(a) for a in armor_tbl.get(c_low, ())]
+    grants.extend(_title(w) for w in weapon_tbl.get(c_low, ()))
+    grants.extend(_MULTICLASS_TOOL_GRANT_LABELS.get(c_low, ()))
+    if c_low in _MULTICLASS_SKILL_GRANT_LABELS:
+        grants.append(_MULTICLASS_SKILL_GRANT_LABELS[c_low])
+    return grants
+
+
+def get_multiclass_eligibility(
+    char_data: Dict[str, Any], edition: str | None = None
+) -> list[Dict[str, Any]]:
+    """Compute multiclass eligibility, 13+ missing prerequisites, Hit Die, and granted profs for all 13 classes."""
+    resolved_ed = (
+        edition
+        or char_data.get("dnd_edition")
+        or char_data.get("ruleset_version")
+        or "2014 Edition"
+    )
+    stats = char_data.get("base_stats") or char_data.get("stats") or {}
+    existing_tuples = _extract_class_subclass_tuples(char_data)
+    existing_levels: dict[str, int] = {}
+    for cname, _, clvl in existing_tuples:
+        c_low = cname.strip().lower()
+        if c_low:
+            existing_levels[c_low] = existing_levels.get(c_low, 0) + clvl
+
+    existing_missing: list[str] = []
+    for c_low in existing_levels:
+        ok, msgs = check_class_multiclass_prereq(c_low, stats, prefix="Current class ")
+        if not ok:
+            existing_missing.extend(msgs)
+
+    options: list[Dict[str, Any]] = []
+    for canon_cls in ALL_CANONICAL_CLASSES:
+        c_low = canon_cls.lower()
+        cur_lvl = existing_levels.get(c_low, 0)
+        is_existing = cur_lvl > 0
+        summary = _MULTICLASS_STAT_RULES.get(c_low, ("", "all", ()))[0]
+        hit_die = _CLASS_HIT_DICE.get(c_low, 8)
+        if is_existing:
+            options.append(
+                {
+                    "class_name": canon_cls,
+                    "is_existing": True,
+                    "current_level": cur_lvl,
+                    "target_level": cur_lvl + 1,
+                    "hit_die": hit_die,
+                    "eligible": True,
+                    "prerequisite_summary": summary,
+                    "missing_prerequisites": [],
+                    "granted_proficiencies": [],
+                }
+            )
+            continue
+
+        new_ok, new_msgs = check_class_multiclass_prereq(canon_cls, stats)
+        missing = [*existing_missing, *(new_msgs if not new_ok else ())]
+        options.append(
+            {
+                "class_name": canon_cls,
+                "is_existing": False,
+                "current_level": 0,
+                "target_level": 1,
+                "hit_die": hit_die,
+                "eligible": len(missing) == 0,
+                "prerequisite_summary": summary,
+                "missing_prerequisites": missing,
+                "granted_proficiencies": get_multiclass_granted_proficiencies(
+                    canon_cls, resolved_ed
+                ),
+            }
+        )
+    return options
+
+
+def validate_multiclass_target(
+    char_data: Dict[str, Any], target_class: str, edition: str | None = None
+) -> Dict[str, Any]:
+    """Validate that a character can level into target_class (blocking invalid new-class multiclassing)."""
+    target_low = str(target_class or "").strip().lower()
+    options = get_multiclass_eligibility(char_data, edition=edition)
+    matched = next((o for o in options if o["class_name"].lower() == target_low), None)
+    if matched is None:
+        raise ValueError(f"Unknown class '{target_class}'.")
+    if not matched["is_existing"] and not matched["eligible"]:
+        reasons = "; ".join(matched["missing_prerequisites"])
+        raise ValueError(f"Cannot multiclass into {matched['class_name']}: {reasons}.")
+    return matched
+
 
 def get_character_armor_proficiencies(char_data: Dict[str, Any], class_data: Dict[str, Any]) -> set:
     """Extracts all armor proficiencies granted by primary class, multiclass table, subclass, and features."""
     proficiencies = set()
-    edition = char_data.get("dnd_edition", "2014 Edition")
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
     is_2024 = "2024" in str(edition or "")
     repo = RulesRepository()
     mc_armor_table = _MULTICLASS_ARMOR_PROFS_2024 if is_2024 else _MULTICLASS_ARMOR_PROFS_2014
@@ -614,7 +919,7 @@ def get_character_weapon_proficiencies(
 ) -> set[str]:
     """Extract weapon proficiencies from primary class, multiclass table, subclass, race, and features."""
     profs: set[str] = set()
-    edition = char_data.get("dnd_edition", "2014 Edition")
+    edition = char_data.get("dnd_edition") or char_data.get("ruleset_version") or "2014 Edition"
     is_2024 = "2024" in str(edition or "")
     mc_weapon_table = _MULTICLASS_WEAPON_PROFS_2024 if is_2024 else _MULTICLASS_WEAPON_PROFS_2014
     repo = RulesRepository()
@@ -985,25 +1290,14 @@ def deterministic_validate_build(char_data: Dict[str, Any]) -> tuple[Dict[str, A
 
     classes = corrected_char.get("classes", [])
     if len(classes) > 1:
-        prereqs = {
-            "barbarian": lambda s: s.get("STR", 0) >= 13,
-            "bard": lambda s: s.get("CHA", 0) >= 13,
-            "cleric": lambda s: s.get("WIS", 0) >= 13,
-            "druid": lambda s: s.get("WIS", 0) >= 13,
-            "fighter": lambda s: s.get("STR", 0) >= 13 or s.get("DEX", 0) >= 13,
-            "monk": lambda s: s.get("DEX", 0) >= 13 and s.get("WIS", 0) >= 13,
-            "paladin": lambda s: s.get("STR", 0) >= 13 and s.get("CHA", 0) >= 13,
-            "ranger": lambda s: s.get("DEX", 0) >= 13 and s.get("WIS", 0) >= 13,
-            "rogue": lambda s: s.get("DEX", 0) >= 13,
-            "sorcerer": lambda s: s.get("CHA", 0) >= 13,
-            "warlock": lambda s: s.get("CHA", 0) >= 13,
-            "wizard": lambda s: s.get("INT", 0) >= 13,
-            "artificer": lambda s: s.get("INT", 0) >= 13,
-        }
         for cls in classes:
-            cname = cls.get("class_name", "").lower()
-            if cname in prereqs and not prereqs[cname](stats):
-                issue_msg = f"Character does not meet the multiclassing stat prerequisites for {cname.capitalize()}."
+            cname = cls.get("class_name", "")
+            ok, _ = check_class_multiclass_prereq(cname, stats)
+            if not ok:
+                canon = cname.strip().capitalize()
+                issue_msg = (
+                    f"Character does not meet the multiclassing stat prerequisites for {canon}."
+                )
                 logger.warning(issue_msg)
                 issues.append(issue_msg)
 

@@ -1729,6 +1729,8 @@
     [nextLevel]="(charState.activeCharacter()?.char_level || 1) + 1"
     [levelUpAnalysis]="levelUpAnalysis"
     [userChoices]="levelUpUserChoices"
+    [isAnalyzing]="levelUpLoading()"
+    [isApplying]="isApplyingLevelUp()"
     (userChoicesChange)="onLevelUpChoicesChange($event)"
     (applyLevelUp)="applyLevelUp()"
   ></app-level-up-modal>

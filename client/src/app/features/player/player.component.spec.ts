@@ -1675,6 +1675,103 @@ describe('PlayerComponent — DM party_update long_rest & Exhaustion sync QA Fix
     http.verify();
     fixture.destroy();
   });
+
+  it('locks Apply Level Up while class-switch analysis is in flight and guards against double submit (#264)', () => {
+    const messages$ = new Subject<WsMessage>();
+    const opened$ = new Subject<string>();
+    TestBed.configureTestingModule({
+      imports: [PlayerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        {
+          provide: WebSocketService,
+          useValue: {
+            messages$,
+            opened$,
+            vttState: signal(null),
+            connect: jest.fn(),
+            disconnect: jest.fn(),
+            sendMessage: () => true,
+          },
+        },
+      ],
+    });
+
+    const http = TestBed.inject(HttpTestingController);
+    const charState = TestBed.inject(CharacterStateService);
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'thorin_race_264',
+      char_name: 'Thorin',
+      char_class: 'Fighter',
+      char_level: 4,
+      classes: [{ class_name: 'Fighter', level: 4, subclass: 'Champion' }],
+      stats: { STR: 16, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 8 },
+      dnd_edition: '2014 Edition',
+      dm_level_up_unlocked: true,
+    } as CharacterSchema);
+
+    const fixture = TestBed.createComponent(PlayerComponent);
+    const comp = fixture.componentInstance;
+
+    // 1. Open Level Up modal -> initial Fighter L5 analysis resolves
+    comp.onLevelUp();
+    expect(comp.levelUpLoading()).toBe(true);
+    http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis')).flush({
+      automatic_changes: [],
+      hp_increase: 8,
+      hp_bonus_per_level: 0,
+      new_total_hp: 44,
+      choices_required: [],
+      updated_proficiency_bonus: 3,
+      updated_spell_slots: {},
+    });
+    expect(comp.levelUpLoading()).toBe(false);
+
+    // 2. Switch class Fighter -> Rogue: levelUpLoading MUST flip true synchronously and block stale applyLevelUp()
+    comp.onLevelUpChoicesChange({ level_up_class: 'Rogue' });
+    expect(comp.levelUpLoading()).toBe(true);
+    comp.applyLevelUp();
+    http.expectNone((r) => r.url.endsWith('/forge/level-up-apply'));
+
+    // 3. Flush Rogue analysis -> loading clears, valid applyLevelUp() sends Rogue analysis and guards double clicks
+    const rogueAnalysisReq = http.expectOne((r) => r.url.endsWith('/forge/level-up-analysis'));
+    const rogueAnalysis = {
+      automatic_changes: [{ name: 'Multiclass Proficiencies (Rogue)', description: "Light Armor, Thieves' Tools" }],
+      hp_increase: 7,
+      hp_bonus_per_level: 0,
+      new_total_hp: 43,
+      choices_required: [{ type: 'skill', label: 'Multiclass Rogue: Choose 1 Bonus Skill Proficiency', options: ['Acrobatics'] }],
+      updated_proficiency_bonus: 3,
+      updated_spell_slots: {},
+    };
+    rogueAnalysisReq.flush(rogueAnalysis);
+    expect(comp.levelUpLoading()).toBe(false);
+
+    comp.levelUpUserChoices = { level_up_class: 'Rogue', skill_0: 'Acrobatics' };
+    comp.applyLevelUp();
+    comp.applyLevelUp(); // second rapid click ignored while isApplyingLevelUp() is true
+    expect(comp.isApplyingLevelUp()).toBe(true);
+
+    const applyReqs = http.match((r) => r.url.endsWith('/forge/level-up-apply'));
+    expect(applyReqs).toHaveLength(1);
+    expect(applyReqs[0].request.body.analysis.hp_increase).toBe(7);
+    applyReqs[0].flush({
+      ...charState.activeCharacter()!,
+      char_level: 5,
+      classes: [
+        { class_name: 'Fighter', level: 4, subclass: 'Champion' },
+        { class_name: 'Rogue', level: 1 },
+      ],
+    });
+    expect(comp.isApplyingLevelUp()).toBe(false);
+
+    http.match((r) => r.url.includes('/characters')).forEach((r) => r.flush({ characters: [] }));
+    http.verify();
+    fixture.destroy();
+  });
 });
 
 describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas Sync', () => {
