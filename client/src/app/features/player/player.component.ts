@@ -705,7 +705,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   private queryParamsSub?: Subscription;
 
   ngOnInit() {
-    this.charState.ensureLoaded().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+    this.charState
+      .ensureLoaded()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: () => {} });
 
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       this.mq = window.matchMedia('(max-width: 1023px)');

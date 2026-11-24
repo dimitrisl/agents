@@ -274,5 +274,49 @@ describe('AuthService', () => {
         }
       }
     });
+
+    it('resets vault state and :data: caches on account switch via login(), but preserves them on same-user changePassword() (#267)', async () => {
+      const originalCachesDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'caches');
+      const deletedKeys: string[] = [];
+      Object.defineProperty(globalThis, 'caches', {
+        value: {
+          keys: jest.fn().mockResolvedValue(['ngsw:/:data:dynamic:rules-api:cache']),
+          delete: jest.fn((key: string) => {
+            deletedKeys.push(key);
+            return Promise.resolve(true);
+          }),
+        },
+        configurable: true,
+        writable: true,
+      });
+
+      try {
+        // Same-user password change: keeps active vault untouched
+        service.currentUser.set(mockUser);
+        localStorage.setItem('currentUser', JSON.stringify(mockUser));
+        service.changePassword({ new_password: 'NewStrongPassword99!' }).subscribe();
+        httpTestingController
+          .expectOne(`${environment.apiBaseUrl}/auth/change-password`)
+          .flush({ access_token: 'rotated', token_type: 'bearer', user: mockUser });
+        expect(charStateSpy.reset).not.toHaveBeenCalled();
+
+        // Logging in as a different user on an active SPA session wipes prior vault & :data: caches
+        const userB: User = { id: 'u2', username: 'user_b', has_completed_tutorial: true };
+        service.login({ username: 'user_b', password: 'secret' }).subscribe();
+        httpTestingController
+          .expectOne(`${environment.apiBaseUrl}/auth/login`)
+          .flush({ access_token: 'jwt-user-b', token_type: 'bearer', user: userB });
+
+        await Promise.resolve();
+        expect(charStateSpy.reset).toHaveBeenCalledTimes(1);
+        expect(deletedKeys).toEqual(['ngsw:/:data:dynamic:rules-api:cache']);
+      } finally {
+        if (originalCachesDescriptor) {
+          Object.defineProperty(globalThis, 'caches', originalCachesDescriptor);
+        } else {
+          delete (globalThis as any).caches;
+        }
+      }
+    });
   });
 });

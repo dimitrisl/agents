@@ -30,8 +30,8 @@ def test_health_endpoint_returns_healthy_when_mongo_ping_succeeds():
     mock_db.command = AsyncMock(return_value={"ok": 1.0})
     app.dependency_overrides[get_database] = lambda: mock_db
 
-    with TestClient(app) as client:
-        resp = client.get(f"{settings.API_V1_STR}/health")
+    client = TestClient(app)
+    resp = client.get(f"{settings.API_V1_STR}/health")
 
     assert resp.status_code == 200
     assert resp.json() == {
@@ -49,8 +49,8 @@ def test_health_endpoint_returns_503_without_leaking_connection_details():
     )
     app.dependency_overrides[get_database] = lambda: mock_db
 
-    with TestClient(app) as client:
-        resp = client.get(f"{settings.API_V1_STR}/health")
+    client = TestClient(app)
+    resp = client.get(f"{settings.API_V1_STR}/health")
 
     assert resp.status_code == 503
     assert resp.json() == {
@@ -69,16 +69,14 @@ def test_health_endpoint_is_exempt_from_global_rate_limit():
     mock_db.command = AsyncMock(return_value={"ok": 1.0})
     app.dependency_overrides[get_database] = lambda: mock_db
 
-    with TestClient(app) as client:
-        # Exceed GLOBAL_RATE_LIMIT (100/minute) with container health probes
-        for attempt in range(110):
-            resp = client.get(
-                f"{settings.API_V1_STR}/health",
-                headers={"X-Forwarded-For": "10.99.0.10"},
-            )
-            assert resp.status_code == 200, (
-                f"Probe {attempt + 1} was blocked with {resp.status_code}"
-            )
+    client = TestClient(app)
+    # Exceed GLOBAL_RATE_LIMIT (100/minute) with container health probes
+    for attempt in range(110):
+        resp = client.get(
+            f"{settings.API_V1_STR}/health",
+            headers={"X-Forwarded-For": "10.99.0.10"},
+        )
+        assert resp.status_code == 200, f"Probe {attempt + 1} was blocked with {resp.status_code}"
 
 
 def test_pwa_manifest_and_png_icons_exist_on_disk():
@@ -109,6 +107,10 @@ def test_pwa_manifest_and_png_icons_exist_on_disk():
 def test_ngsw_config_caches_rules_without_caching_sensitive_or_user_apis():
     ngsw_path = CLIENT_ROOT / "ngsw-config.json"
     config = json.loads(ngsw_path.read_text(encoding="utf-8"))
+
+    nav_urls = config.get("navigationUrls", [])
+    assert "!/api/**" in nav_urls
+    assert "!/ws/**" in nav_urls
 
     asset_group_names = {grp["name"] for grp in config.get("assetGroups", [])}
     assert {"app", "assets"}.issubset(asset_group_names)
@@ -141,8 +143,14 @@ def test_docker_and_nginx_production_configuration_invariants():
     assert "FROM python:3.13-slim" in dockerfile_backend
     assert "USER appuser" in dockerfile_backend
     assert "chown -R appuser:appuser /app" in dockerfile_backend
+    assert "COPY data/rules ./data/rules" in dockerfile_backend
+    assert "COPY data/pdf_mappings ./data/pdf_mappings" in dockerfile_backend
     assert "/api/v1/health" in dockerfile_backend
     assert "--proxy-headers" in dockerfile_backend
+    assert "--forwarded-allow-ips=*" not in dockerfile_backend
+
+    dockerignore = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8")
+    assert "data/pdf_mappings" not in dockerignore
 
     dockerfile_frontend = (REPO_ROOT / "Dockerfile.frontend").read_text(encoding="utf-8")
     assert "FROM nginx:1.27-alpine" in dockerfile_frontend
@@ -159,10 +167,12 @@ def test_docker_and_nginx_production_configuration_invariants():
     assert "try_files $uri $uri/ /index.html;" in nginx_conf
     assert "ngsw-worker" in nginx_conf
     assert "ngsw" in nginx_conf
+    assert nginx_conf.count('add_header X-Content-Type-Options "nosniff" always;') >= 3
 
     compose = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     assert "image: mongo:7" in compose
     assert "portraits_data:/app/data/portraits" in compose
     assert "uploads_data:/app/data/uploads" in compose
     assert "module_pics_data:/app/data/module_pics" in compose
+    assert '"127.0.0.1:${BACKEND_PORT:-8000}:8000"' in compose
     assert "campaign_assets" not in compose

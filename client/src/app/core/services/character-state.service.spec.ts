@@ -129,6 +129,53 @@ describe('CharacterStateService', () => {
       expect(localStorage.getItem('phyrexian_forge_vault_snapshot')).toBeNull();
     });
 
+    it('rejects unowned cached vault snapshot when a user is signed in (#267)', () => {
+      localStorage.setItem(
+        'phyrexian_forge_vault_snapshot',
+        JSON.stringify({
+          ownerId: null,
+          savedAt: '2026-11-24T12:00:00.000Z',
+          characters: [mockChar2014],
+          unreadable: [],
+        })
+      );
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-b', username: 'bob' }));
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(false);
+      expect(service.vaultStatus()).toBe('error');
+      expect(service.characters()).toEqual([]);
+      expect(localStorage.getItem('phyrexian_forge_vault_snapshot')).toBeNull();
+    });
+
+    it('preserves edition filtering parity when multi-hero offline vault has no matching edition (#267)', () => {
+      localStorage.setItem('currentUser', JSON.stringify({ id: 'user-a', username: 'alice' }));
+      localStorage.setItem(
+        'phyrexian_forge_vault_snapshot',
+        JSON.stringify({
+          ownerId: 'user-a',
+          savedAt: '2026-11-24T12:00:00.000Z',
+          characters: [mockChar2014],
+          unreadable: [],
+        })
+      );
+      service.dndEdition.set('2024 Revision (5.5e)');
+
+      service.loadCharacters().subscribe({ error: () => {} });
+      httpMock
+        .expectOne(`${environment.apiBaseUrl}/characters`)
+        .error(new ProgressEvent('Network error'));
+
+      expect(service.isOfflineCached()).toBe(true);
+      expect(service.characters().length).toBe(1);
+      expect(service.filteredCharacters().length).toBe(0);
+      expect(service.activeCharacter()).toBeNull();
+    });
+
     it('does not fall back to offline cache on 401/403 auth errors (#267)', () => {
       localStorage.setItem('currentUser', JSON.stringify({ id: 'user-a', username: 'alice' }));
       localStorage.setItem(

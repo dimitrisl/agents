@@ -12,7 +12,7 @@ The `server/` directory contains the FastAPI server foundation, configuration, d
 | [`server/main.py`](../../../server/main.py) | Application factory (`app = FastAPI(...)`), async lifespan context manager (`lifespan`), CORS middleware, `/api/v1/portraits` static file mount, rate-limit-exempt `GET /api/v1/health` probe, and router mounting. |
 | [`server/config.py`](../../../server/config.py) | Pydantic Settings model reading environment variables (`MONGO_URI`, `DATABASE_NAME`, `GEMINI_API_KEY`, `JWT_SECRET_KEY`, `CORS_ORIGINS`, `DEBUG_MODE`, `TRUSTED_PROXIES`). |
 | [`server/db_async.py`](../../../server/db_async.py) | Async Motor MongoDB client lifecycle, singleton accessor (`get_database()`), and index initialization (`init_indexes()`). |
-| [`Dockerfile.backend`](../../../Dockerfile.backend) & [`docker-compose.yml`](../../../docker-compose.yml) | Non-root (`appuser`) Python 3.13 production image running `uvicorn --proxy-headers`, container healthcheck against `/api/v1/health`, and persistent volumes for `mongo_data`, `portraits_data` (`/app/data/portraits`), `uploads_data` (`/app/data/uploads`), and `module_pics_data` (`/app/data/module_pics`). |
+| [`Dockerfile.backend`](../../../Dockerfile.backend) & [`docker-compose.yml`](../../../docker-compose.yml) | Non-root (`appuser`) Python 3.13 production image bundling `data/rules/` & `data/pdf_mappings/`, running `uvicorn --proxy-headers` scoped strictly to explicit `TRUSTED_PROXIES` CIDRs (loopback-bound backend port by default), container healthcheck against `/api/v1/health`, and persistent volumes for `mongo_data`, `portraits_data` (`/app/data/portraits`), `uploads_data` (`/app/data/uploads`), and `module_pics_data` (`/app/data/module_pics`). |
 
 ---
 

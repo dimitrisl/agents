@@ -17,6 +17,7 @@ interface VaultSnapshot {
   savedAt: string;
   characters: CharacterSchema[];
   unreadable?: any[];
+  isLegacy?: boolean;
 }
 
 @Injectable({
@@ -209,9 +210,9 @@ export class CharacterStateService {
               const matched = available.find((c) => c.char_id === currentActive.char_id) || null;
               this.activeCharacter.set(matched);
             } else {
-              this.activeCharacter.set(
-                this.preferredActive(available.length > 0 ? available : snapshot.characters)
-              );
+              const fallbackPool =
+                available.length > 0 ? available : snapshot.isLegacy ? snapshot.characters : [];
+              this.activeCharacter.set(this.preferredActive(fallbackPool));
             }
           } else {
             this.vaultStatus.set('error');
@@ -298,7 +299,10 @@ export class CharacterStateService {
       const raw = localStorage.getItem(VAULT_SNAPSHOT_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<VaultSnapshot>;
-        if (parsed.ownerId && parsed.ownerId !== currentUserId) {
+        const ownerMismatch = currentUserId
+          ? parsed.ownerId !== currentUserId
+          : Boolean(parsed.ownerId);
+        if (ownerMismatch) {
           this.clearActiveSnapshot();
           return null;
         }
@@ -309,6 +313,7 @@ export class CharacterStateService {
             savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : '',
             characters: valid,
             unreadable: Array.isArray(parsed.unreadable) ? parsed.unreadable : [],
+            isLegacy: false,
           };
         }
       }
@@ -318,8 +323,11 @@ export class CharacterStateService {
 
     const legacy = this.readActiveSnapshot();
     if (!legacy) return null;
-    const legacyOwner = (legacy as any).owner_id;
-    if (typeof legacyOwner === 'string' && currentUserId && legacyOwner !== currentUserId) {
+    const legacyOwner = (legacy as any).owner_id ?? (legacy as any).user_id;
+    const legacyMismatch = currentUserId
+      ? typeof legacyOwner === 'string' && legacyOwner !== currentUserId
+      : typeof legacyOwner === 'string';
+    if (legacyMismatch) {
       this.clearActiveSnapshot();
       return null;
     }
@@ -328,22 +336,29 @@ export class CharacterStateService {
       savedAt: '',
       characters: [legacy],
       unreadable: [],
+      isLegacy: true,
     };
   }
 
   private storeActiveSnapshot(char: CharacterSchema | null): void {
-    if (!char?.char_id) return;
+    const ownerId = this.readCurrentUserId();
+    if (!char?.char_id || !ownerId) return;
     try {
-      localStorage.setItem(ACTIVE_CHARACTER_SNAPSHOT_KEY, JSON.stringify(char));
+      localStorage.setItem(
+        ACTIVE_CHARACTER_SNAPSHOT_KEY,
+        JSON.stringify({ ...char, owner_id: (char as any).owner_id ?? ownerId })
+      );
     } catch {
       // Storage quota/private mode errors are non-fatal for offline cache.
     }
   }
 
   private storeVaultSnapshot(characters: CharacterSchema[], unreadable: any[] = []): void {
+    const ownerId = this.readCurrentUserId();
+    if (!ownerId) return;
     try {
       const snapshot: VaultSnapshot = {
-        ownerId: this.readCurrentUserId(),
+        ownerId,
         savedAt: new Date().toISOString(),
         characters,
         unreadable,
