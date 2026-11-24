@@ -40,9 +40,25 @@ INDEX_DEFINITIONS = [
         [("char_id", pymongo.ASCENDING), ("owner_id", pymongo.ASCENDING)],
         {"name": "idx_characters_char_id_owner_id"},
     ),
-    # Users: globally unique username and unique id
+    # Users: globally unique username, unique id, and sparse unique Discord ID
     ("users", [("username", pymongo.ASCENDING)], {"unique": True, "name": "uniq_users_username"}),
     ("users", [("id", pymongo.ASCENDING)], {"unique": True, "name": "uniq_users_id"}),
+    (
+        "users",
+        [("discord_id", pymongo.ASCENDING)],
+        {"unique": True, "sparse": True, "name": "uniq_users_discord_id"},
+    ),
+    # OAuth single-use handoff JTIs (#266) — unique jti + automatic TTL cleanup
+    (
+        "oauth_handoffs",
+        [("jti", pymongo.ASCENDING)],
+        {"unique": True, "name": "uniq_oauth_handoffs_jti"},
+    ),
+    (
+        "oauth_handoffs",
+        [("expires_at", pymongo.ASCENDING)],
+        {"expireAfterSeconds": 0, "name": "ttl_oauth_handoffs_expires_at"},
+    ),
     # Campaigns: unique campaign_name and unique sparse invite_code
     (
         "campaigns",

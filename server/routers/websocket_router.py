@@ -272,6 +272,8 @@ async def campaign_websocket_endpoint(
 
     try:
         user = await get_current_user_from_token(token)
+        if user.get("must_change_password"):
+            raise ValueError("Password change required")
     except Exception as e:
         logger.warning(f"Unauthorized WebSocket connection attempt: {e}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)

@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import {
+  AdminPasswordResetResponse,
   AdminService,
   AdminUser,
   UserDeletionPreview,
@@ -14,6 +15,7 @@ import {
   ForgeBadgeComponent,
   ForgeButtonDirective,
   ForgeCardComponent,
+  ForgeConfirmService,
   ForgeEmptyStateComponent,
   ForgeInputDirective,
   ForgeModalComponent,
@@ -101,7 +103,14 @@ export class AdminComponent implements OnInit {
   isUpdatingReport = signal<boolean>(false);
   updatingReportAction = signal<'resolved' | 'dismissed' | null>(null);
 
+  // Admin Password Reset Modal state
+  isResettingUserId = signal<string | null>(null);
+  showResetPasswordModal = signal<boolean>(false);
+  resetPasswordResult = signal<AdminPasswordResetResponse | null>(null);
+  copiedTempPassword = signal<boolean>(false);
+
   private readonly destroyRef = inject(DestroyRef);
+  private readonly confirmService = inject(ForgeConfirmService);
   private readonly searchTerms$ = new Subject<string>();
   private usersRequestSeq = 0;
 
@@ -274,5 +283,60 @@ export class AdminComponent implements OnInit {
 
   trackReport(_index: number, report: WhisperReport): string {
     return report.report_id;
+  }
+
+  async requestPasswordReset(user: AdminUser): Promise<void> {
+    if (user.is_admin || user.is_demo || this.isResettingUserId()) return;
+
+    const confirmed = await this.confirmService.ask({
+      title: 'Reset User Password',
+      message: `Issue a one-time temporary password for "${user.username}"? All existing sessions for this user will be invalidated and they will have to set a new password upon login.`,
+      confirmLabel: 'Issue Temp Password',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    this.isResettingUserId.set(user.id);
+    this.copiedTempPassword.set(false);
+    this.adminService
+      .resetUserPassword(user.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.isResettingUserId.set(null);
+          this.resetPasswordResult.set(res);
+          this.showResetPasswordModal.set(true);
+          this.rollToast.showMessage(
+            '🔑 PASSWORD RESET',
+            `Issued one-time temporary password for ${res.username}.`
+          );
+          this.loadUsers();
+        },
+        error: (err) => {
+          this.isResettingUserId.set(null);
+          this.rollToast.showMessage(
+            '⚠️ RESET FAILED',
+            err?.error?.detail || 'Failed to reset user password.'
+          );
+        },
+      });
+  }
+
+  async copyTemporaryPassword(): Promise<void> {
+    const temp = this.resetPasswordResult()?.temporary_password;
+    if (!temp) return;
+    try {
+      await navigator.clipboard.writeText(temp);
+      this.copiedTempPassword.set(true);
+      this.rollToast.showMessage('📋 COPIED', 'Temporary password copied to clipboard.');
+    } catch {
+      this.rollToast.showMessage('⚠️ COPY FAILED', 'Select and copy the temporary password manually.');
+    }
+  }
+
+  closeResetPasswordModal(): void {
+    this.showResetPasswordModal.set(false);
+    this.resetPasswordResult.set(null);
+    this.copiedTempPassword.set(false);
   }
 }

@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import re
+import secrets
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from backend.core.schemas import (
+    AdminPasswordResetResponse,
     AdminUserSchema,
     UserDeletionPreview,
     UserDeletionReport,
@@ -22,7 +24,7 @@ from backend.services.user_admin_service import (
     delete_user_cascade,
 )
 from server.db_async import get_database
-from server.dependencies.auth import is_user_recently_active, require_admin
+from server.dependencies.auth import get_password_hash, is_user_recently_active, require_admin
 from server.routers.websocket_router import manager
 
 logger = logging.getLogger("PhyrexianForge.AdminRouter")
@@ -87,6 +89,8 @@ async def list_admin_users(
             created_at=u.get("created_at"),
             is_admin=bool(u.get("is_admin", False)),
             is_online=is_online,
+            is_demo=bool(u.get("is_demo", False)) or u.get("password_hash") == "demo",
+            must_change_password=bool(u.get("must_change_password", False)),
             character_count=char_count,
             dm_campaign_count=len(dm_camps),
             member_campaign_count=member_camp_count,
@@ -115,6 +119,94 @@ async def delete_user(
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     return await delete_user_cascade(db, user_id, admin_user)
+
+
+@router.post("/users/{user_id}/reset-password", response_model=AdminPasswordResetResponse)
+async def reset_user_password(
+    user_id: str,
+    admin_user: dict = Depends(require_admin),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    target = await _maybe_await(db["users"].find_one({"id": user_id}))
+    if not target:
+        target = await _maybe_await(db["users"].find_one({"username": user_id}))
+    if not target and user_id.startswith("local_user_"):
+        target = await _maybe_await(
+            db["users"].find_one({"username": user_id.removeprefix("local_user_")})
+        )
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    actual_user_id = target.get("id") or (
+        f"local_user_{target['username']}" if target.get("username") else user_id
+    )
+    username = target.get("username", "Unknown")
+
+    if bool(target.get("is_demo", False)) or target.get("password_hash") == "demo":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Demo accounts cannot have their password reset.",
+        )
+
+    if actual_user_id == admin_user.get("id") or username == admin_user.get("username"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Use Settings to change your own password.",
+        )
+
+    if bool(target.get("is_admin", False)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot reset another administrator's password.",
+        )
+
+    temp_password = secrets.token_urlsafe(10)
+    new_hash = get_password_hash(temp_password)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if "_id" in target:
+        user_filter = {"_id": target["_id"]}
+    elif target.get("id"):
+        user_filter = {"id": target["id"]}
+    else:
+        user_filter = {"username": target["username"]}
+
+    await _maybe_await(
+        db["users"].update_one(
+            user_filter,
+            {
+                "$set": {
+                    "password_hash": new_hash,
+                    "must_change_password": True,
+                    "password_changed_at": now.isoformat(),
+                },
+                "$inc": {"token_version": 1},
+            },
+        )
+    )
+    await _maybe_await(manager.disconnect_user(actual_user_id))
+
+    try:
+        await _maybe_await(
+            db["admin_audit_log"].insert_one(
+                {
+                    "action": "reset_user_password",
+                    "admin_user_id": admin_user["id"],
+                    "admin_username": admin_user.get("username"),
+                    "target_user_id": actual_user_id,
+                    "target_username": username,
+                    "created_at": now,
+                }
+            )
+        )
+    except Exception as e:
+        logger.warning("Error writing reset_user_password to audit log: %s", e)
+
+    return AdminPasswordResetResponse(
+        user_id=actual_user_id,
+        username=username,
+        temporary_password=temp_password,
+        must_change_password=True,
+    )
 
 
 @router.get("/reports", response_model=List[WhisperReportSchema])

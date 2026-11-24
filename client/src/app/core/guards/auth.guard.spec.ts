@@ -76,4 +76,33 @@ describe('authGuard', () => {
     expect(routerSpy.createUrlTree).toHaveBeenCalledWith(['/login']);
     expect(result).toBe('UrlTree(/login)');
   });
+
+  it('should redirect must_change_password users to /settings when navigating elsewhere', () => {
+    authServiceSpy.isAuthenticated.mockReturnValue(true);
+    (authServiceSpy as any).mustChangePassword = jest.fn().mockReturnValue(true);
+    dummyState = { url: '/campaigns' };
+
+    const result = runGuard();
+    expect(routerSpy.createUrlTree).toHaveBeenCalledWith(['/settings']);
+    expect(result).toBe('UrlTree(/settings)');
+  });
+
+  it('should allow must_change_password users on /settings', () => {
+    authServiceSpy.isAuthenticated.mockReturnValue(true);
+    (authServiceSpy as any).mustChangePassword = jest.fn().mockReturnValue(true);
+    dummyState = { url: '/settings' };
+
+    const result = runGuard();
+    expect(result).toBe(true);
+  });
+
+  it('should redirect must_change_password users from lookalike /settings-other paths', () => {
+    authServiceSpy.isAuthenticated.mockReturnValue(true);
+    (authServiceSpy as any).mustChangePassword = jest.fn().mockReturnValue(true);
+    dummyState = { url: '/settings-other' };
+
+    const result = runGuard();
+    expect(routerSpy.createUrlTree).toHaveBeenCalledWith(['/settings']);
+    expect(result).toBe('UrlTree(/settings)');
+  });
 });

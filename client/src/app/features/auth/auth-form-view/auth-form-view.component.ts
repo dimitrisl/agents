@@ -18,11 +18,14 @@ export class AuthFormViewComponent {
   @Input() isRegister = false;
   @Input() error = '';
   @Input() submitting = false;
+  @Input() discordSubmitting = false;
   @Input() username = '';
   @Input() password = '';
+  @Input() discordEnabled = false;
   @Output() usernameChange = new EventEmitter<string>();
   @Output() passwordChange = new EventEmitter<string>();
   @Output() submitAuth = new EventEmitter<void>();
   @Output() toggleMode = new EventEmitter<void>();
   @Output() back = new EventEmitter<void>();
+  @Output() discordLogin = new EventEmitter<void>();
 }

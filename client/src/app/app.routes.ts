@@ -8,6 +8,11 @@ import { adminGuard } from './core/guards/admin.guard';
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   {
+    path: 'auth/callback',
+    loadComponent: () =>
+      import('./features/auth/oauth-callback.component').then((m) => m.OAuthCallbackComponent),
+  },
+  {
     path: 'campaigns',
     loadComponent: () =>
       import('./features/campaigns/campaign-picker.component').then((m) => m.CampaignPickerComponent),

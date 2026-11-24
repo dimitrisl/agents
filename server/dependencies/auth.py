@@ -5,7 +5,7 @@ import time
 from typing import Dict, Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from passlib.context import CryptContext
@@ -73,7 +73,13 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
         expire = now + expires_delta
     else:
         expire = now + datetime.timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire, "iat": now.timestamp()})
+    to_encode.update(
+        {
+            "exp": expire,
+            "iat": now.timestamp(),
+            "purpose": to_encode.get("purpose", "access"),
+        }
+    )
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
@@ -88,6 +94,8 @@ async def get_current_user_from_token(
     )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("purpose") not in (None, "access"):
+            raise credentials_exception
         user_id: str = payload.get("sub")
         username: str = payload.get("username")
         if user_id is None:
@@ -127,10 +135,37 @@ async def get_current_user_from_token(
         except Exception:
             pass
 
-    user.pop("password_hash", None)
-    record_user_activity(user.get("id"), user.get("username"))
-    set_user_ai_settings(user_ai_context(user.get("ai_settings")))
-    return user
+    # Reject tokens issued before password change / admin reset (token_version revocation)
+    try:
+        token_tv = int(payload.get("tv") or 0)
+        user_tv = int(user.get("token_version") or 0)
+    except (TypeError, ValueError):
+        raise credentials_exception
+    if token_tv < user_tv:
+        raise credentials_exception
+
+    user_copy = dict(user)
+    resolved_uid = user_copy.get("id") or (
+        f"local_user_{user_copy['username']}" if user_copy.get("username") else user_id
+    )
+    user_copy["id"] = resolved_uid
+    is_demo_user = bool(user_copy.get("is_demo", False)) or user_copy.get("password_hash") == "demo"
+    has_password = False if is_demo_user else bool(user_copy.get("password_hash"))
+    providers = []
+    if has_password:
+        providers.append("local")
+    if user_copy.get("discord_id"):
+        providers.append("discord")
+
+    user_copy["is_demo"] = is_demo_user
+    user_copy["has_password"] = has_password
+    user_copy["must_change_password"] = bool(user_copy.get("must_change_password", False))
+    user_copy["auth_providers"] = providers
+    user_copy.pop("password_hash", None)
+
+    record_user_activity(user_copy.get("id"), user_copy.get("username"))
+    set_user_ai_settings(user_ai_context(user_copy.get("ai_settings")))
+    return user_copy
 
 
 def user_ai_context(stored: Optional[dict]) -> Optional[dict]:
@@ -143,9 +178,19 @@ def user_ai_context(stored: Optional[dict]) -> Optional[dict]:
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: AsyncIOMotorDatabase = Depends(get_database)
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> dict:
-    return await get_current_user_from_token(token, db)
+    user = await get_current_user_from_token(token, db)
+    if user.get("must_change_password"):
+        auth_prefix = f"{settings.API_V1_STR}/auth/"
+        if not (request.url.path.startswith(auth_prefix) or request.url.path.startswith("/auth/")):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password change required before continuing.",
+            )
+    return user
 
 
 async def require_admin(
@@ -154,10 +199,14 @@ async def require_admin(
 ) -> dict:
     """Verify admin status directly from the database (never from JWT claims)."""
     user_doc = await db["users"].find_one({"id": current_user["id"]})
+    if not user_doc and current_user.get("username"):
+        user_doc = await db["users"].find_one({"username": current_user["username"]})
     if not user_doc or not bool(user_doc.get("is_admin", False)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required.",
         )
+    user_doc = dict(user_doc)
+    user_doc["id"] = user_doc.get("id") or current_user["id"]
     user_doc.pop("password_hash", None)
     return user_doc

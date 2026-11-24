@@ -116,6 +116,17 @@ class Settings(BaseSettings):
     MAX_FOUNDRY_IMPORT_BYTES: int = 5 * 1024 * 1024  # 5 MB
     DNDBEYOND_IMPORT_RATE_LIMIT: str = "10/minute"
 
+    # Optional Discord OAuth2 Onboarding (#266)
+    DISCORD_CLIENT_ID: str = ""
+    DISCORD_CLIENT_SECRET: str = ""
+    DISCORD_REDIRECT_URI: Optional[str] = None
+    FRONTEND_URL: str = ""
+
+    @property
+    def discord_oauth_enabled(self) -> bool:
+        """True only when both Discord OAuth2 credentials are non-empty."""
+        return bool(self.DISCORD_CLIENT_ID.strip() and self.DISCORD_CLIENT_SECRET.strip())
+
     @property
     def cors_origin_list(self) -> list[str]:
         """Parse comma-separated CORS_ORIGINS into a list."""

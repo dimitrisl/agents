@@ -56,13 +56,16 @@
         [isRegister]="isRegister"
         [error]="error"
         [submitting]="submitting"
+        [discordSubmitting]="discordSubmitting"
         [username]="username"
         [password]="password"
+        [discordEnabled]="discordEnabled"
         (usernameChange)="username = $event"
         (passwordChange)="password = $event"
         (submitAuth)="onSubmit()"
-        (toggleMode)="isRegister = !isRegister"
-        (back)="mode = 'choice'"
+        (discordLogin)="onDiscordLogin()"
+        (toggleMode)="toggleAuthMode()"
+        (back)="backToChoice()"
       />
     }
   }

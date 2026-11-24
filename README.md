@@ -38,6 +38,7 @@ Comprehensive technical and architectural documentation is organized in the cent
 - **Poetry** ([python-poetry.org](https://python-poetry.org/))
 - **Node.js 18+ & npm** ([nodejs.org](https://nodejs.org/))
 - **MongoDB** running locally on port `27017` (or configured via `MONGO_URI` in `.env`)
+- **Optional Discord OAuth2:** Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and optionally `DISCORD_REDIRECT_URI` / `FRONTEND_URL` in `.env` (see [`.env_example`](.env_example)) to enable "Sign in with Discord".
 
 ---
 

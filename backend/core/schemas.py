@@ -697,9 +697,18 @@ class AdminUserSchema(BaseModel):
     created_at: Optional[str] = None
     is_admin: bool = False
     is_online: bool = False
+    is_demo: bool = False
+    must_change_password: bool = False
     character_count: int = 0
     dm_campaign_count: int = 0
     member_campaign_count: int = 0
+
+
+class AdminPasswordResetResponse(BaseModel):
+    user_id: str
+    username: str
+    temporary_password: str
+    must_change_password: bool = True
 
 
 class UserDeletionPreview(BaseModel):

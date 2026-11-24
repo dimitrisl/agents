@@ -1,5 +1,15 @@
-import { Component, TemplateRef, ViewChild } from '@angular/core';
-import { Router } from '@angular/router';
+import {
+  Component,
+  DestroyRef,
+  HostListener,
+  OnInit,
+  Optional,
+  TemplateRef,
+  ViewChild,
+  inject,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { describeHttpError } from '../../core/interceptors/error.interceptor';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -14,7 +24,7 @@ import { ForgeAuthShellComponent } from '../../shared/ui/forge-auth-shell/forge-
   imports: [ChoiceViewComponent, TutorialViewComponent, AuthFormViewComponent, ForgeAuthShellComponent],
   templateUrl: './login.component.html',
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   @ViewChild('forgeLogo', { static: true }) forgeLogo!: TemplateRef<unknown>;
 
   mode: 'choice' | 'tutorial' | 'auth' = 'choice';
@@ -24,10 +34,66 @@ export class LoginComponent {
   password = '';
   isRegister = false;
   error = '';
+  discordEnabled = false;
   /** True while register/login runs: spins the submit button and blocks resubmits. */
   submitting = false;
+  /** Separate loading flag for external Discord redirect so local buttons stay accurate & reset on bfcache. */
+  discordSubmitting = false;
 
-  constructor(private authService: AuthService, private router: Router) {}
+  private readonly destroyRef = inject(DestroyRef);
+
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    @Optional() private route?: ActivatedRoute
+  ) {}
+
+  ngOnInit() {
+    const oauthErr = this.route?.snapshot?.queryParamMap?.get('oauth_error');
+    if (oauthErr) {
+      this.mode = 'auth';
+      this.error = oauthErr;
+      this.router.navigate([], {
+        relativeTo: this.route ?? undefined,
+        replaceUrl: true,
+        queryParams: { oauth_error: null },
+        queryParamsHandling: 'merge',
+      });
+    }
+
+    this.authService
+      .getProviders?.()
+      ?.pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (providers) => {
+          this.discordEnabled = Boolean(providers?.discord);
+        },
+        error: () => {
+          this.discordEnabled = false;
+        },
+      });
+  }
+
+  @HostListener('window:pageshow')
+  onPageShow() {
+    this.discordSubmitting = false;
+  }
+
+  onDiscordLogin() {
+    if (this.submitting || this.discordSubmitting) return;
+    this.discordSubmitting = true;
+    this.authService.startDiscordLogin?.();
+  }
+
+  toggleAuthMode() {
+    this.isRegister = !this.isRegister;
+    this.error = '';
+  }
+
+  backToChoice() {
+    this.mode = 'choice';
+    this.error = '';
+  }
 
   openTutorial(role: 'none' | 'player' | 'dm' | 'intro' = 'none') {
     this.tutorialRole = role;
@@ -36,7 +102,7 @@ export class LoginComponent {
   }
 
   onSubmit() {
-    if (this.submitting) return;
+    if (this.submitting || this.discordSubmitting) return;
     if (!this.username || !this.password) {
       this.error = 'Please provide both username and password.';
       return;
@@ -62,9 +128,9 @@ export class LoginComponent {
 
   private login() {
     this.authService.login({ username: this.username, password: this.password }).subscribe({
-      next: () => {
+      next: (res) => {
         // Stays "submitting" through the navigation so the button cannot fire twice.
-        this.router.navigate(['/campaigns']);
+        this.router.navigate([res?.user?.must_change_password ? '/settings' : '/campaigns']);
       },
       error: (err) => {
         this.submitting = false;
