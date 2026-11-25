@@ -41,6 +41,28 @@ export interface Weapon {
   dm_attack_bonus_applied?: number;
   dm_damage_bonus_applied?: number;
   magic_bonus_suppressed_applied?: number;
+  ammo_count?: number | null;
+  ammo_max?: number | null;
+  weight?: number | null;
+  resolved_weight_lb?: number | null;
+  weight_ignored?: boolean;
+}
+
+export type EncumbranceStatus =
+  | 'unencumbered'
+  | 'encumbered'
+  | 'heavily_encumbered'
+  | 'over_capacity';
+
+export interface WeightBreakdown {
+  equipment_lb: number;
+  weapons_lb: number;
+  coins_lb: number;
+  multiplier: number;
+  capacity_sources: string[];
+  encumbered_threshold_lb: number;
+  heavily_encumbered_threshold_lb: number;
+  push_drag_lift_lb: number;
 }
 
 export interface CurrencyBlock {
@@ -79,6 +101,11 @@ export interface EquipmentItem {
   val2?: number;
   /** Free-text notes from the sheet, e.g. "+1 AC/saves". */
   description?: string;
+  weight?: number | null;
+  resolved_weight_lb?: number | null;
+  weight_ignored?: boolean;
+  uses_current?: number | null;
+  uses_max?: number | null;
 }
 
 export interface FeatureTrait {
@@ -215,6 +242,10 @@ export interface CharacterSchema {
   dm_hp_bonus_applied?: number;
   currency?: CurrencyBlock;
   class_resources?: ClassResource[];
+  total_weight_lb?: number;
+  carrying_capacity_lb?: number;
+  encumbrance_status?: EncumbranceStatus;
+  weight_breakdown?: WeightBreakdown;
   base_stats?: StatBlock;
   base_speed?: number;
   heavy_armor_speed_penalty?: number;

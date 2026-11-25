@@ -180,6 +180,18 @@
                 >
                   <span class="flex min-w-0 items-center gap-1.5">
                     <span class="truncate text-body font-semibold text-ink">{{ weapon.name }}</span>
+                    @if (ammoInfo(weapon).isRepeatingShot) {
+                      <forge-badge tone="accent" size="sm" class="shrink-0">∞</forge-badge>
+                    } @else if (hasAmmoTracking(weapon)) {
+                      <forge-badge
+                        [tone]="(weapon.ammo_count ?? 0) === 0 ? 'danger' : 'muted'"
+                        size="sm"
+                        class="shrink-0 tabular-nums"
+                        [attr.data-testid]="'mobile-weapon-ammo-' + index"
+                      >
+                        🏹 {{ weapon.ammo_count }}/{{ weapon.ammo_max ?? weapon.ammo_count }}
+                      </forge-badge>
+                    }
                     @if (weaponMasteryName(weapon); as mastery) {
                       <forge-badge tone="accent" size="sm" class="shrink-0">{{ mastery }}</forge-badge>
                     }
@@ -483,6 +495,39 @@
           </div>
         </section>
 
+        <!-- Compact Carrying Capacity & Encumbrance Meter (#262) -->
+        <section
+          class="flex flex-col gap-2 rounded-xl bg-tile p-3"
+          aria-label="Carrying capacity and encumbrance"
+          data-testid="mobile-encumbrance-meter"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-label font-semibold tabular-nums text-ink">
+              ⚖️ Load {{ encumbrance.totalWeightLb }} / {{ encumbrance.capacityLb }} lb
+            </span>
+            <forge-badge [tone]="encumbranceTone()" size="sm">
+              {{ encumbranceStatusLabel() }}
+            </forge-badge>
+          </div>
+          <div
+            class="h-2 w-full overflow-hidden rounded-full bg-panel"
+            role="meter"
+            aria-label="Carrying capacity load"
+            [attr.aria-valuenow]="encumbrance.totalWeightLb"
+            aria-valuemin="0"
+            [attr.aria-valuemax]="encumbrance.capacityLb"
+          >
+            <div
+              class="h-full transition-all duration-150"
+              [ngClass]="encumbranceBarClass()"
+              [style.width.%]="encumbrance.percentUsed"
+            ></div>
+          </div>
+          <p class="text-micro tabular-nums text-muted">
+            Gear {{ encumbrance.breakdown.equipment_lb }} · Wpn {{ encumbrance.breakdown.weapons_lb }} · Coins {{ encumbrance.breakdown.coins_lb }} lb · {{ encumbrance.breakdown.capacity_sources.join(' · ') }}
+          </p>
+        </section>
+
         <!-- Attunement & Filter Bar -->
         <div class="flex flex-wrap items-center justify-between gap-2 px-1">
           <forge-badge
@@ -542,6 +587,16 @@
                         @if ((row.item.quantity ?? 1) > 1) {
                           <span class="shrink-0 text-micro font-semibold tabular-nums text-muted">×{{ row.item.quantity }}</span>
                         }
+                        @if (itemRemainingUses(row.item); as uses) {
+                          <forge-badge tone="muted" size="sm" class="shrink-0 tabular-nums">
+                            🩹 {{ uses.current }}/{{ uses.max }}
+                          </forge-badge>
+                        }
+                        @if (row.item.weight_ignored) {
+                          <forge-badge tone="muted" size="sm" class="shrink-0">📦 Stashed</forge-badge>
+                        } @else if (itemTotalWeightLb(row.item) > 0) {
+                          <span class="shrink-0 text-micro tabular-nums text-muted">{{ itemTotalWeightLb(row.item) }} lb</span>
+                        }
                         @if (row.item.ac_bonus) {
                           <forge-badge [tone]="row.item.equipped ? 'accent' : 'muted'" size="sm" class="shrink-0">
                             🛡️ {{ row.item.ac_bonus >= 10 ? row.item.ac_bonus : '+' + row.item.ac_bonus }}
@@ -570,6 +625,19 @@
                           (click)="drinkPotion(row.item, $event)"
                         >
                           🧪 Drink
+                        </button>
+                      }
+                      @if (!isHealingPotion(row.item) && (row.item.quantity ?? 1) > 0 && utilityConsumable(row.item); as uc) {
+                        <button
+                          forgeButton
+                          variant="secondary"
+                          tone="accent"
+                          size="sm"
+                          type="button"
+                          [attr.aria-label]="uc.label + ' ' + row.item.name"
+                          (click)="useItemConsumable(row.item, $event)"
+                        >
+                          {{ uc.icon }} {{ uc.label }}
                         </button>
                       }
                       <button
@@ -738,6 +806,84 @@
               <span class="font-mono text-ink">{{ getWeaponBreakdown(weapon).damage.formulaText }}</span>
             </div>
           </div>
+
+          <!-- Ammunition & Weight Controls (#262) -->
+          @if (ammoInfo(weapon).canTrackAmmo || weaponUnitWeightLb(weapon) > 0 || weapon.weight_ignored) {
+            <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-tile px-3 py-2.5 text-label">
+              @if (ammoInfo(weapon).isRepeatingShot) {
+                <forge-badge tone="accent" size="sm">∞ Repeating Shot (Unlimited Ammo)</forge-badge>
+              } @else if (hasAmmoTracking(weapon)) {
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="flex items-center gap-1 rounded-lg border border-hairline bg-panel px-1 py-0.5" role="group" [attr.aria-label]="'Ammunition for ' + weapon.name">
+                    <button
+                      forgeButton
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [disabled]="(weapon.ammo_count ?? 0) <= 0"
+                      [attr.aria-label]="'Decrease ammo for ' + weapon.name"
+                      (click)="adjustAmmo(weapon, -1, $event)"
+                    >
+                      <forge-icon name="minus" size="xs" />
+                    </button>
+                    <span class="min-w-12 text-center font-mono text-label font-bold tabular-nums" [ngClass]="(weapon.ammo_count ?? 0) === 0 ? 'text-red' : 'text-ink'">
+                      🏹 {{ weapon.ammo_count }}/{{ weapon.ammo_max ?? weapon.ammo_count }}
+                    </span>
+                    <button
+                      forgeButton
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [attr.aria-label]="'Increase ammo for ' + weapon.name"
+                      (click)="adjustAmmo(weapon, 1, $event)"
+                    >
+                      <forge-icon name="plus" size="xs" />
+                    </button>
+                  </div>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    (click)="recoverAmmoHalf(weapon, $event)"
+                  >
+                    ↺ Recover ½
+                  </button>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    (click)="reloadAmmoFull(weapon, $event)"
+                  >
+                    Full
+                  </button>
+                </div>
+              } @else if (ammoInfo(weapon).canTrackAmmo) {
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  (click)="enableAmmoTracking(weapon, $event)"
+                >
+                  🏹 Track Ammo ({{ ammoInfo(weapon).suggestedMax }})
+                </button>
+              }
+              <button
+                forgeButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                [attr.aria-pressed]="!!weapon.weight_ignored"
+                (click)="toggleWeaponWeightIgnored(weapon, $event)"
+              >
+                {{ weapon.weight_ignored ? '📦 Stashed (0 lb)' : '⚖️ ' + weaponUnitWeightLb(weapon) + ' lb' }}
+              </button>
+            </div>
+          }
 
           <!-- Properties & 2024 Weapon Mastery Rule -->
           @if (weaponProperties(weapon).length > 0 || weaponMasteryName(weapon)) {
@@ -950,6 +1096,49 @@
                     (ngModelChange)="onWeaponDamageTypeChange(weapon, $event)"
                   />
                 </div>
+                <div>
+                  <label [attr.for]="'mob-weapon-ammo-cur-' + inspectedWeaponIndex()" class="mb-1 block text-micro font-semibold uppercase text-muted">Ammo Count</label>
+                  <input
+                    [attr.id]="'mob-weapon-ammo-cur-' + inspectedWeaponIndex()"
+                    forgeInput
+                    dense
+                    type="number"
+                    min="0"
+                    class="w-full"
+                    placeholder="Off"
+                    [ngModel]="weapon.ammo_count ?? null"
+                    (ngModelChange)="onWeaponAmmoChange(weapon, 'ammo_count', $event)"
+                  />
+                </div>
+                <div>
+                  <label [attr.for]="'mob-weapon-ammo-max-' + inspectedWeaponIndex()" class="mb-1 block text-micro font-semibold uppercase text-muted">Ammo Max</label>
+                  <input
+                    [attr.id]="'mob-weapon-ammo-max-' + inspectedWeaponIndex()"
+                    forgeInput
+                    dense
+                    type="number"
+                    min="0"
+                    class="w-full"
+                    placeholder="20"
+                    [ngModel]="weapon.ammo_max ?? null"
+                    (ngModelChange)="onWeaponAmmoChange(weapon, 'ammo_max', $event)"
+                  />
+                </div>
+                <div>
+                  <label [attr.for]="'mob-weapon-weight-' + inspectedWeaponIndex()" class="mb-1 block text-micro font-semibold uppercase text-muted">Weight (lb)</label>
+                  <input
+                    [attr.id]="'mob-weapon-weight-' + inspectedWeaponIndex()"
+                    forgeInput
+                    dense
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    class="w-full"
+                    placeholder="Auto"
+                    [ngModel]="weapon.weight ?? null"
+                    (ngModelChange)="onWeaponWeightChange(weapon, $event)"
+                  />
+                </div>
                 <label
                   [attr.for]="'mobile-weapon-prof-' + inspectedWeaponIndex()"
                   class="col-span-2 flex min-h-8 cursor-pointer items-center gap-2 text-label text-ink"
@@ -1026,6 +1215,39 @@
                 🧪 Drink Potion
               </button>
             }
+            @if (!isHealingPotion(item) && (item.quantity ?? 1) > 0 && utilityConsumable(item); as uc) {
+              <button
+                forgeButton
+                variant="secondary"
+                tone="accent"
+                size="sm"
+                type="button"
+                (click)="useItemConsumable(item, $event); closeItemInspector()"
+              >
+                {{ uc.icon }} {{ uc.label }}
+              </button>
+            }
+          </div>
+
+          <!-- Weight & Stashed Toggle (#262) -->
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-tile px-3 py-2.5">
+            <div class="flex flex-col">
+              <span class="text-micro font-semibold uppercase text-muted">Weight</span>
+              <span class="text-label font-semibold tabular-nums text-ink">
+                {{ itemUnitWeightLb(item) }} lb each · {{ itemTotalWeightLb(item) }} lb total
+              </span>
+            </div>
+            <button
+              forgeButton
+              variant="secondary"
+              [tone]="item.weight_ignored ? 'accent' : undefined"
+              size="sm"
+              type="button"
+              [attr.aria-pressed]="!!item.weight_ignored"
+              (click)="toggleItemWeightIgnored(item, $event)"
+            >
+              {{ item.weight_ignored ? '📦 Stashed / In Bag' : '📦 Carry on Self' }}
+            </button>
           </div>
 
           <!-- Quantity Stepper -->
@@ -1116,7 +1338,7 @@
             </div>
           } @else {
             <div class="flex flex-col gap-2">
-              <input forgeInput dense type="text" [(ngModel)]="item.name" placeholder="Item name" (change)="onItemNameChange()" />
+              <input forgeInput dense type="text" [(ngModel)]="item.name" placeholder="Item name" (change)="onItemNameChange(item)" />
               <input forgeInput dense type="text" [(ngModel)]="item.description" placeholder="Notes" (change)="save.emit()" />
               <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label class="flex items-center justify-between gap-2 text-micro font-semibold uppercase text-muted">
@@ -1139,6 +1361,20 @@
                     class="w-20 text-center"
                     [ngModel]="itemSaveBonus(item) || null"
                     (ngModelChange)="onItemSaveChange(item, $event)"
+                  />
+                </label>
+                <label class="flex items-center justify-between gap-2 text-micro font-semibold uppercase text-muted">
+                  Weight (lb)
+                  <input
+                    forgeInput
+                    dense
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="Auto"
+                    class="w-20 text-center"
+                    [ngModel]="item.weight ?? null"
+                    (ngModelChange)="onItemWeightChange(item, $event)"
                   />
                 </label>
               </div>
@@ -1565,12 +1801,12 @@
               class="w-full mt-1"
               [(ngModel)]="weapon.name"
               aria-label="Weapon name"
-              (change)="save.emit()"
+              (change)="onWeaponNameChange(weapon)"
             />
 
             <div
-              *ngIf="!editMode && weaponProperties(weapon).length > 0"
-              class="mt-1.5 flex flex-wrap gap-1"
+              *ngIf="!editMode && (weaponProperties(weapon).length > 0 || ammoInfo(weapon).canTrackAmmo || ammoInfo(weapon).isRepeatingShot)"
+              class="mt-1.5 flex flex-wrap items-center gap-1.5"
             >
               <forge-badge
                 *ngFor="let property of weaponProperties(weapon)"
@@ -1578,6 +1814,57 @@
               >
                 {{ property }}
               </forge-badge>
+              @if (ammoInfo(weapon).isRepeatingShot) {
+                <forge-badge tone="accent" size="sm">∞ Repeating</forge-badge>
+              } @else if (hasAmmoTracking(weapon)) {
+                <div
+                  class="inline-flex items-center gap-1 rounded-md border border-hairline bg-tile px-1 py-0.5"
+                  role="group"
+                  [attr.aria-label]="'Ammunition for ' + weapon.name"
+                  [attr.data-testid]="'desktop-weapon-ammo-' + index"
+                >
+                  <button
+                    forgeButton
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    type="button"
+                    [disabled]="(weapon.ammo_count ?? 0) <= 0"
+                    [attr.aria-label]="'Decrease ammo for ' + weapon.name"
+                    (click)="adjustAmmo(weapon, -1, $event)"
+                  >
+                    <forge-icon name="minus" size="xs" />
+                  </button>
+                  <span
+                    class="min-w-12 text-center font-mono text-label font-semibold tabular-nums"
+                    [ngClass]="(weapon.ammo_count ?? 0) === 0 ? 'text-red' : 'text-ink'"
+                  >
+                    🏹 {{ weapon.ammo_count }}/{{ weapon.ammo_max ?? weapon.ammo_count }}
+                  </span>
+                  <button
+                    forgeButton
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    type="button"
+                    [attr.aria-label]="'Increase ammo for ' + weapon.name"
+                    (click)="adjustAmmo(weapon, 1, $event)"
+                  >
+                    <forge-icon name="plus" size="xs" />
+                  </button>
+                </div>
+              } @else if (ammoInfo(weapon).usesAmmunition) {
+                <button
+                  forgeButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [attr.data-testid]="'desktop-track-ammo-' + index"
+                  (click)="enableAmmoTracking(weapon, $event)"
+                >
+                  🏹 Track Ammo
+                </button>
+              }
             </div>
           </div>
 
@@ -1940,6 +2227,110 @@
                 placeholder="e.g. piercing, slashing, bludgeoning"
               />
             </div>
+
+            <!-- Ammunition Count -->
+            <div>
+              <label
+                for="weapon-ammo-count-{{ index }}"
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Ammo Count:</label
+              >
+              <input
+                id="weapon-ammo-count-{{ index }}"
+                forgeInput
+                dense
+                type="number"
+                min="0"
+                class="w-full"
+                placeholder="Off"
+                [ngModel]="weapon.ammo_count ?? null"
+                (ngModelChange)="onWeaponAmmoChange(weapon, 'ammo_count', $event)"
+              />
+            </div>
+
+            <!-- Ammunition Max -->
+            <div>
+              <label
+                for="weapon-ammo-max-{{ index }}"
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Ammo Max:</label
+              >
+              <input
+                id="weapon-ammo-max-{{ index }}"
+                forgeInput
+                dense
+                type="number"
+                min="0"
+                class="w-full"
+                placeholder="20"
+                [ngModel]="weapon.ammo_max ?? null"
+                (ngModelChange)="onWeaponAmmoChange(weapon, 'ammo_max', $event)"
+              />
+            </div>
+
+            <!-- Weapon Weight & Stash -->
+            <div>
+              <label
+                for="weapon-weight-{{ index }}"
+                class="block mb-1 text-micro font-semibold uppercase text-muted"
+                >Weight (lb):</label
+              >
+              <input
+                id="weapon-weight-{{ index }}"
+                forgeInput
+                dense
+                type="number"
+                min="0"
+                step="0.5"
+                class="w-full"
+                placeholder="Auto"
+                [ngModel]="weapon.weight ?? null"
+                (ngModelChange)="onWeaponWeightChange(weapon, $event)"
+              />
+            </div>
+
+            <div class="flex flex-wrap items-end gap-2 pt-2">
+              @if (hasAmmoTracking(weapon)) {
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  (click)="recoverAmmoHalf(weapon, $event)"
+                >
+                  ↺ Recover ½
+                </button>
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  (click)="reloadAmmoFull(weapon, $event)"
+                >
+                  Reload Full
+                </button>
+              } @else if (ammoInfo(weapon).canTrackAmmo) {
+                <button
+                  forgeButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  (click)="enableAmmoTracking(weapon, $event)"
+                >
+                  🏹 Track Ammo ({{ ammoInfo(weapon).suggestedMax }})
+                </button>
+              }
+              <button
+                forgeButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                [attr.aria-pressed]="!!weapon.weight_ignored"
+                (click)="toggleWeaponWeightIgnored(weapon, $event)"
+              >
+                {{ weapon.weight_ignored ? '📦 Stashed (0 lb)' : '⚖️ Count Weight (' + weaponUnitWeightLb(weapon) + ' lb)' }}
+              </button>
+            </div>
           </div>
 
           <!-- Situational effects editor -->
@@ -2282,6 +2673,44 @@
     </div>
   </section>
 
+  <!-- CARRYING CAPACITY & ENCUMBRANCE METER (#262) -->
+  <section
+    class="flex flex-col gap-2 rounded-xl bg-tile p-3"
+    aria-label="Carrying capacity and encumbrance"
+    data-testid="desktop-encumbrance-meter"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-body font-semibold tabular-nums text-ink">
+          ⚖️ Load {{ encumbrance.totalWeightLb }} / {{ encumbrance.capacityLb }} lb
+        </span>
+        <forge-badge [tone]="encumbranceTone()" size="sm">
+          {{ encumbranceStatusLabel() }}
+        </forge-badge>
+      </div>
+      <span class="text-micro tabular-nums text-muted">
+        Push/Drag/Lift max {{ encumbrance.breakdown.push_drag_lift_lb }} lb · {{ encumbrance.breakdown.capacity_sources.join(' · ') }}
+      </span>
+    </div>
+    <div
+      class="h-2 w-full overflow-hidden rounded-full bg-panel"
+      role="meter"
+      aria-label="Carrying capacity load"
+      [attr.aria-valuenow]="encumbrance.totalWeightLb"
+      aria-valuemin="0"
+      [attr.aria-valuemax]="encumbrance.capacityLb"
+    >
+      <div
+        class="h-full transition-all duration-150"
+        [ngClass]="encumbranceBarClass()"
+        [style.width.%]="encumbrance.percentUsed"
+      ></div>
+    </div>
+    <p class="text-micro tabular-nums text-muted">
+      Gear {{ encumbrance.breakdown.equipment_lb }} lb · Weapons {{ encumbrance.breakdown.weapons_lb }} lb · Coins {{ encumbrance.breakdown.coins_lb }} lb (50 coins/lb)
+    </p>
+  </section>
+
   <section
     class="flex flex-col gap-3"
     aria-labelledby="combat-equipment-heading"
@@ -2373,6 +2802,20 @@
                           🎲 +{{ saveBonus }} Saves
                         </forge-badge>
                       }
+                      @if (itemRemainingUses(row.item); as uses) {
+                        <forge-badge tone="muted" size="sm" class="shrink-0 tabular-nums">
+                          🩹 {{ uses.current }}/{{ uses.max }} uses
+                        </forge-badge>
+                      }
+                      @if (row.item.weight_ignored) {
+                        <forge-badge tone="muted" size="sm" class="shrink-0">
+                          📦 Stashed (0 lb)
+                        </forge-badge>
+                      } @else if (itemTotalWeightLb(row.item) > 0) {
+                        <span class="shrink-0 text-micro tabular-nums text-muted">
+                          {{ itemTotalWeightLb(row.item) }} lb
+                        </span>
+                      }
                       @if (acHintFromNotes(row.item); as hint) {
                         <!-- The note says "+2 AC" but the AC calculation can't read notes: one click applies it -->
                         <button
@@ -2404,7 +2847,7 @@
                           🎲 Use +{{ saveHint }} Saves
                         </button>
                       }
-                      <!-- 1-Tap Healing Potion Drink Button (#174), beside the name so the right-hand columns stay aligned -->
+                      <!-- 1-Tap Healing Potion Drink Button (#174) & Utility Consumables (#262) -->
                       @if (isHealingPotion(row.item) && (row.item.quantity ?? 1) > 0) {
                         <button
                           forgeButton
@@ -2420,6 +2863,21 @@
                           🧪 Drink
                         </button>
                       }
+                      @if (!isHealingPotion(row.item) && (row.item.quantity ?? 1) > 0 && utilityConsumable(row.item); as uc) {
+                        <button
+                          forgeButton
+                          variant="secondary"
+                          tone="accent"
+                          size="sm"
+                          type="button"
+                          class="shrink-0"
+                          [title]="uc.effectNote"
+                          [attr.aria-label]="uc.label + ' ' + row.item.name"
+                          (click)="useItemConsumable(row.item, $event)"
+                        >
+                          {{ uc.icon }} {{ uc.label }}
+                        </button>
+                      }
                     </div>
                     @if (row.item.description) {
                       <p class="truncate text-label text-muted" [title]="row.item.description">{{ row.item.description }}</p>
@@ -2433,7 +2891,7 @@
                         placeholder="Item name"
                         [(ngModel)]="row.item.name"
                         [attr.aria-label]="'Name of ' + row.item.name"
-                        (change)="onItemNameChange()"
+                        (change)="onItemNameChange(row.item)"
                       />
                       <div class="flex flex-wrap items-center gap-2">
                         <input
@@ -2475,6 +2933,34 @@
                             (ngModelChange)="onItemSaveChange(row.item, $event)"
                           />
                         </label>
+                        <label class="flex shrink-0 items-center gap-1.5 text-micro font-semibold uppercase text-muted">
+                          Weight (lb)
+                          <input
+                            forgeInput
+                            dense
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            class="w-16 text-center"
+                            placeholder="Auto"
+                            title="Weight per single unit in pounds (leave empty to use catalog weight)"
+                            [attr.aria-label]="'Weight in lb of ' + row.item.name"
+                            [ngModel]="row.item.weight ?? null"
+                            (ngModelChange)="onItemWeightChange(row.item, $event)"
+                          />
+                        </label>
+                        <button
+                          forgeButton
+                          variant="secondary"
+                          [tone]="row.item.weight_ignored ? 'accent' : undefined"
+                          size="sm"
+                          type="button"
+                          [attr.aria-pressed]="!!row.item.weight_ignored"
+                          [title]="row.item.weight_ignored ? 'Stashed (e.g. inside Bag of Holding); click to count weight' : 'Click to ignore weight (e.g. stored in Bag of Holding or camp)'"
+                          (click)="toggleItemWeightIgnored(row.item, $event)"
+                        >
+                          {{ row.item.weight_ignored ? '📦 Stashed (0 lb)' : '📦 Stash' }}
+                        </button>
                       </div>
                     </div>
                   }

@@ -159,6 +159,10 @@ _DERIVED_CHARACTER_KEYS = (
     "pre_dm_hp_max",
     "class_resources",
     "base_stats",
+    "total_weight_lb",
+    "carrying_capacity_lb",
+    "encumbrance_status",
+    "weight_breakdown",
 )
 
 
@@ -175,6 +179,11 @@ def strip_derived_character_fields(
     for key in _DERIVED_CHARACTER_KEYS:
         char_data.pop(key, None)
 
+    if isinstance(char_data.get("equipment"), list):
+        for eq in char_data["equipment"]:
+            if isinstance(eq, dict):
+                eq.pop("resolved_weight_lb", None)
+
     if strip_hp:
         char_data.pop("hp_max", None)
         char_data.pop("hp_current", None)
@@ -184,7 +193,13 @@ def strip_derived_character_fields(
         for w in char_data["weapons"]:
             if isinstance(w, dict):
                 w_copy = dict(w)
-                for w_key in ("attack_bonus", "damage_bonus", "damage", "is_custom"):
+                for w_key in (
+                    "attack_bonus",
+                    "damage_bonus",
+                    "damage",
+                    "is_custom",
+                    "resolved_weight_lb",
+                ):
                     w_copy.pop(w_key, None)
                 cleaned_weapons.append(w_copy)
             else:
@@ -1312,7 +1327,9 @@ def cap_prepared_leveled_spells(
 
 
 def hydrate_character_spellcasting_and_resources(
-    char_data: Dict[str, Any], repo: Any = None
+    char_data: Dict[str, Any],
+    repo: Any = None,
+    homebrew_content: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Hydrate missing #261 spellcasting/resource fields on legacy DB docs without mutating existing resource counts."""
     if not isinstance(char_data, dict):
@@ -1367,6 +1384,14 @@ def hydrate_character_spellcasting_and_resources(
         subclass=subclass,
         features_traits=char_data.get("features_traits"),
         char_class=char_class,
+    )
+    from backend.services.inventory_service import sync_character_inventory
+
+    sync_character_inventory(
+        char_data,
+        repo=repo,
+        homebrew_content=homebrew_content,
+        preserve_existing_on_miss=(homebrew_content is None),
     )
     return char_data
 
@@ -3643,6 +3668,17 @@ def sync_character_stats(
         subclass=char_data.get("subclass"),
         features_traits=char_data.get("features_traits"),
         char_class=char_class,
+    )
+
+    from backend.services.inventory_service import sync_character_inventory
+
+    sync_character_inventory(
+        char_data,
+        repo=repo,
+        all_items=all_items,
+        homebrew_content=homebrew_content,
+        race_meta=race_meta,
+        preserve_existing_on_miss=(homebrew_content is None),
     )
 
     if effective_exh >= 6:

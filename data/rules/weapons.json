@@ -277,5 +277,50 @@
         "mastery": "Vex",
         "weight": "3 lb.",
         "cost": "250 GP"
+    },
+    {
+        "name": "Dart",
+        "category": "Simple Ranged",
+        "damage": "1d4 Piercing",
+        "properties": ["Finesse", "Thrown (20/60)"],
+        "mastery": "Vex",
+        "weight": "1/4 lb.",
+        "cost": "5 CP"
+    },
+    {
+        "name": "Sling",
+        "category": "Simple Ranged",
+        "damage": "1d4 Bludgeoning",
+        "properties": ["Ammunition (30/120)"],
+        "mastery": "Slow",
+        "weight": "0 lb.",
+        "cost": "1 SP"
+    },
+    {
+        "name": "Blowgun",
+        "category": "Martial Ranged",
+        "damage": "1 Piercing",
+        "properties": ["Ammunition (25/100)", "Loading"],
+        "mastery": "Vex",
+        "weight": "1 lb.",
+        "cost": "10 GP"
+    },
+    {
+        "name": "Hand Crossbow",
+        "category": "Martial Ranged",
+        "damage": "1d6 Piercing",
+        "properties": ["Ammunition (30/120)", "Light", "Loading"],
+        "mastery": "Vex",
+        "weight": "3 lb.",
+        "cost": "75 GP"
+    },
+    {
+        "name": "Heavy Crossbow",
+        "category": "Martial Ranged",
+        "damage": "1d10 Piercing",
+        "properties": ["Ammunition (100/400)", "Heavy", "Loading", "Two-Handed"],
+        "mastery": "Push",
+        "weight": "18 lb.",
+        "cost": "50 GP"
     }
 ]

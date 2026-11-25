@@ -111,6 +111,7 @@ import {
   metamagicEdition,
   metamagicOptions,
   spendMetamagic,
+  UtilityConsumableAction,
 } from '../../core/rules';
 import {
   ForgeBadgeComponent,
@@ -1052,6 +1053,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
     if (Array.isArray(payload.class_resources)) {
       target.class_resources = payload.class_resources.map((r: any) => ({ ...r }));
+    }
+    if (typeof payload.total_weight_lb === 'number') {
+      target.total_weight_lb = payload.total_weight_lb;
+    }
+    if (typeof payload.carrying_capacity_lb === 'number') {
+      target.carrying_capacity_lb = payload.carrying_capacity_lb;
+    }
+    if (typeof payload.encumbrance_status === 'string') {
+      target.encumbrance_status = payload.encumbrance_status;
+    }
+    if (payload.weight_breakdown && typeof payload.weight_breakdown === 'object') {
+      target.weight_breakdown = { ...payload.weight_breakdown };
     }
     if (typeof payload.version === 'number') target.version = payload.version;
   }
@@ -3434,6 +3447,59 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       mode: 'normal',
       rollType: 'healing',
     });
+  }
+
+  onUseConsumable(event: { item: EquipmentItem; action: UtilityConsumableAction }) {
+    const char = this.charState.activeCharacter();
+    if (!char || isDeceasedByExhaustion(char)) {
+      if (char) {
+        this.rollToast.showMessage('💀 DECEASED', 'Cannot use consumables while at Exhaustion Level 6.');
+      }
+      return;
+    }
+    this.haptics.lightTap();
+    const { item, action } = event;
+    const currentEquipment = char.equipment || [];
+    const currentQty = item.quantity ?? 1;
+    let updatedEquipment: EquipmentItem[];
+
+    if (action.kind === 'charges') {
+      const maxUses = item.uses_max ?? action.maxUses ?? 10;
+      const curUses = item.uses_current ?? maxUses;
+      if (curUses > 1) {
+        updatedEquipment = currentEquipment.map((eq) =>
+          eq === item ? { ...eq, uses_current: curUses - 1, uses_max: maxUses } : eq
+        );
+      } else if (currentQty > 1) {
+        updatedEquipment = currentEquipment.map((eq) =>
+          eq === item ? { ...eq, quantity: currentQty - 1, uses_current: maxUses, uses_max: maxUses } : eq
+        );
+      } else {
+        updatedEquipment = currentEquipment.filter((eq) => eq !== item);
+      }
+    } else {
+      updatedEquipment =
+        currentQty <= 1
+          ? currentEquipment.filter((eq) => eq !== item)
+          : currentEquipment.map((eq) =>
+              eq === item ? { ...eq, quantity: currentQty - 1 } : eq
+            );
+    }
+
+    let nextTempHp = char.hp_temp ?? 0;
+    if (action.kind === 'temp_hp' && action.tempHp) {
+      // D&D Temporary HP never stack; apply the higher value.
+      nextTempHp = Math.max(nextTempHp, action.tempHp);
+    }
+
+    const updated: CharacterSchema = {
+      ...char,
+      hp_temp: nextTempHp,
+      equipment: updatedEquipment,
+    };
+    this.charState.activeCharacter.set(updated);
+    this.saveCurrentChar();
+    this.rollToast.showMessage(action.toastTitle, `${item.name}: ${action.effectNote}`);
   }
 
   sendQuickWhisper(text: string) {

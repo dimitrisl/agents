@@ -644,8 +644,14 @@ async def get_campaign_party(
     cursor = db["characters"].find({"active_campaign": name})
     party_members = []
     owner_ids = set()
+    from backend.repositories.rules_repository import RulesRepository
+    from backend.services.inventory_service import sync_character_inventory
+
+    repo = RulesRepository()
+    homebrew_items = await _load_campaign_homebrew(db, name)
     async for char in cursor:
         char.pop("_id", None)
+        sync_character_inventory(char, repo=repo, homebrew_content=homebrew_items)
         party_members.append(char)
         if char.get("owner_id"):
             owner_ids.add(char.get("owner_id"))
@@ -716,6 +722,10 @@ _SYNCED_CHAR_FIELDS = (
     "exhaustion_bypass",
     "magic_items_suppressed",
     "dm_modifiers",
+    "total_weight_lb",
+    "carrying_capacity_lb",
+    "encumbrance_status",
+    "weight_breakdown",
 )
 
 
@@ -3307,7 +3317,29 @@ async def distribute_loot(
             elif kind == "spell":
                 char_spells_to_push.append(validated_data)
 
-        # Compute per-character weapon stats using character's ability scores & proficiency bonus
+        # Compute per-character weapon stats and hydrate weights
+        from backend.repositories.rules_repository import RulesRepository
+        from backend.services.inventory_service import (
+            resolve_item_unit_weight_lb,
+            resolve_weapon_unit_weight_lb,
+            sync_character_inventory,
+        )
+        from backend.services.stats_service import (
+            _merge_homebrew_items,
+            _merge_homebrew_weapons,
+        )
+
+        loot_repo = RulesRepository()
+        camp_homebrew = await _load_campaign_homebrew(db, name)
+        merged_loot_hb = list(camp_homebrew) + list(awarded_items)
+        catalog_items = _merge_homebrew_items(loot_repo.get_all_items(), merged_loot_hb)
+        catalog_weapons = _merge_homebrew_weapons(loot_repo.get_all_weapons(), merged_loot_hb)
+        for eq_item in char_equip_to_push:
+            if isinstance(eq_item, dict):
+                eq_item["resolved_weight_lb"] = round(
+                    resolve_item_unit_weight_lb(eq_item, catalog_items, catalog_weapons), 2
+                )
+
         char_weapons_to_push: List[Dict[str, Any]] = []
         if char_weapons_base:
             char_stats = char.get("stats") or {}
@@ -3317,11 +3349,14 @@ async def distribute_loot(
                     dict(w_base),
                     char_stats,
                     char_prof,
-                    homebrew_content=awarded_items,
+                    homebrew_content=merged_loot_hb,
                     features_traits=char.get("features_traits", []),
                     suppress_magic_items=bool(char.get("magic_items_suppressed", False)),
                 )
                 apply_character_weapon_modifiers(w_calc, char)
+                w_calc["resolved_weight_lb"] = round(
+                    resolve_weapon_unit_weight_lb(w_calc, catalog_weapons), 2
+                )
                 char_weapons_to_push.append(Weapon.model_validate(w_calc).model_dump())
 
         # Ensure arrays are initialized if missing or corrupted
@@ -3366,6 +3401,35 @@ async def distribute_loot(
                 update_ops["$addToSet"] = add_to_set_ops
 
         if inc_ops or update_ops:
+            # Recompute updated inventory summary totals atomically alongside $push/$inc/$addToSet
+            working_char = copy.deepcopy(char)
+            working_curr = dict(working_char.get("currency") or {})
+            for coin in ("pp", "gp", "ep", "sp", "cp"):
+                working_curr[coin] = max(0, int(working_curr.get(coin) or 0)) + inc_ops.get(
+                    f"currency.{coin}", 0
+                )
+            working_char["currency"] = working_curr
+            working_char["equipment"] = list(working_char.get("equipment") or []) + list(
+                char_equip_to_push
+            )
+            working_char["weapons"] = list(working_char.get("weapons") or []) + list(
+                char_weapons_to_push
+            )
+            sync_character_inventory(
+                working_char,
+                repo=loot_repo,
+                all_items=catalog_items,
+                all_weapons=catalog_weapons,
+                preserve_existing_on_miss=False,
+            )
+            update_ops.setdefault("$set", {}).update(
+                {
+                    "total_weight_lb": working_char["total_weight_lb"],
+                    "carrying_capacity_lb": working_char["carrying_capacity_lb"],
+                    "encumbrance_status": working_char["encumbrance_status"],
+                    "weight_breakdown": working_char["weight_breakdown"],
+                }
+            )
             inc_ops["version"] = 1
             update_ops["$inc"] = inc_ops
             await db["characters"].update_one({"char_id": char_id}, update_ops)

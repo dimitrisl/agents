@@ -95,10 +95,19 @@ async def list_characters(
     cursor = db["characters"].find({"owner_id": current_user["id"]})
     characters = []
     unreadable = []
+    hb_cache: dict[str, list] = {}
     async for doc in cursor:
         doc.pop("_id", None)
         try:
-            hydrate_character_spellcasting_and_resources(doc)
+            camp_id = doc.get("active_campaign")
+            homebrew_items = []
+            if camp_id:
+                if camp_id not in hb_cache:
+                    hb_cache[camp_id] = await _get_homebrew_for_character(db, camp_id)
+                homebrew_items = hb_cache[camp_id]
+            hydrate_character_spellcasting_and_resources(
+                doc, homebrew_content=homebrew_items or None
+            )
             characters.append(CharacterSchema.model_validate(doc, strict=False))
         except Exception as e:
             logger.warning("Skipping legacy character %s: %s", doc.get("char_name", "Unknown"), e)
@@ -239,7 +248,8 @@ async def get_character(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
     doc.pop("_id", None)
-    hydrate_character_spellcasting_and_resources(doc)
+    homebrew_items = await _get_homebrew_for_character(db, doc.get("active_campaign"))
+    hydrate_character_spellcasting_and_resources(doc, homebrew_content=homebrew_items or None)
     return CharacterSchema.model_validate(doc, strict=False)
 
 

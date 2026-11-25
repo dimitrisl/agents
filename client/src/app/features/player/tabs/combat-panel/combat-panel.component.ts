@@ -51,16 +51,25 @@ import {
 import {
   abilityModifier,
   catalogDefaultSaveBonus,
+  classifyUtilityConsumable,
+  classifyWeaponAmmo,
+  computeEncumbranceSummary,
   describeDmModifiers,
+  effectiveItemUnitWeightLb,
+  effectiveWeaponUnitWeightLb,
+  EncumbranceSummary,
   exhaustionD20Penalty,
   hasExhaustionDisadvantage,
   maxAttunementSlots,
+  recoverExpendedAmmo,
   removeClassResourceAt,
   resolveRollMode,
   resourceEditedMax,
   resourceRulesMax,
   setClassResourceCurrent,
   upsertClassResourceList,
+  UtilityConsumableAction,
+  WeaponAmmoClassification,
 } from '../../../../core/rules';
 
 type EquipmentFilter = 'all' | 'equipped' | 'attuned' | 'inventory';
@@ -111,6 +120,7 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
   @Output() save = new EventEmitter<void>();
   @Output() saveImmediate = new EventEmitter<void>();
   @Output() consumePotion = new EventEmitter<{ item: EquipmentItem; dice: string; bonus: number; name: string }>();
+  @Output() useConsumable = new EventEmitter<{ item: EquipmentItem; action: UtilityConsumableAction }>();
   @Output() updateHeroStatus = new EventEmitter<{ inspiration?: boolean; exhaustion_level?: number }>();
   @Output() combatAction = new EventEmitter<'Dodge' | 'Dash' | 'Disengage' | 'Help'>();
 
@@ -721,6 +731,32 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   rollAttack(weapon: Weapon): void {
+    const ammo = this.ammoInfo(weapon);
+    if (!ammo.isRepeatingShot && this.hasAmmoTracking(weapon)) {
+      const currentAmmo = weapon.ammo_count ?? 0;
+      if (currentAmmo <= 0) {
+        if (ammo.usesAmmunition && !ammo.isThrown) {
+          this.rollToast.showMessage(
+            '⚠️ OUT OF AMMUNITION',
+            `0 ammunition left for ${weapon.name}. Reload or adjust the counter before firing.`
+          );
+          return;
+        }
+        this.rollToast.showMessage(
+          '🏹 NO THROWN STOCK LEFT',
+          `0 remaining for ${weapon.name} — rolling melee strike without expending stock.`
+        );
+      } else {
+        const nextAmmo = currentAmmo - 1;
+        weapon.ammo_count = nextAmmo;
+        this.char.weapons = (this.char.weapons || []).map((w) =>
+          w === weapon ? { ...w, ammo_count: nextAmmo } : w
+        );
+        this.cdr.markForCheck();
+        this.save.emit();
+      }
+    }
+
     const resolved = resolveRollMode(
       this.rollMode,
       hasExhaustionDisadvantage(this.char, 'attack')
@@ -741,6 +777,106 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
       mode: roll.mode,
       rollType: 'attack',
     });
+  }
+
+  // --- Ammunition & Weapon Weight (#262) ---
+  ammoInfo(weapon: Weapon): WeaponAmmoClassification {
+    return classifyWeaponAmmo(weapon, this.char);
+  }
+
+  hasAmmoTracking(weapon: Weapon): boolean {
+    return weapon.ammo_count !== undefined && weapon.ammo_count !== null;
+  }
+
+  enableAmmoTracking(weapon: Weapon, event?: Event): void {
+    event?.stopPropagation();
+    const suggested = this.ammoInfo(weapon).suggestedMax;
+    weapon.ammo_max = weapon.ammo_max ?? suggested;
+    weapon.ammo_count = weapon.ammo_count ?? weapon.ammo_max;
+    this.char.weapons = [...(this.char.weapons || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+  }
+
+  adjustAmmo(weapon: Weapon, delta: number, event?: Event): void {
+    event?.stopPropagation();
+    const cur = weapon.ammo_count ?? 0;
+    const next = Math.max(0, cur + delta);
+    weapon.ammo_count = next;
+    if (weapon.ammo_max === undefined || weapon.ammo_max === null || next > weapon.ammo_max) {
+      weapon.ammo_max = Math.max(next, this.ammoInfo(weapon).suggestedMax);
+    }
+    this.char.weapons = [...(this.char.weapons || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+  }
+
+  recoverAmmoHalf(weapon: Weapon, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.hasAmmoTracking(weapon)) return;
+    const cur = weapon.ammo_count ?? 0;
+    const max = weapon.ammo_max ?? Math.max(cur, this.ammoInfo(weapon).suggestedMax);
+    const recovered = recoverExpendedAmmo(cur, max);
+    const gained = recovered - cur;
+    weapon.ammo_count = recovered;
+    this.char.weapons = [...(this.char.weapons || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+    this.rollToast.showMessage(
+      '🏹 AMMO RECOVERED',
+      `${weapon.name}: recovered ${gained} (${recovered}/${max}).`
+    );
+  }
+
+  reloadAmmoFull(weapon: Weapon, event?: Event): void {
+    event?.stopPropagation();
+    const max = weapon.ammo_max ?? this.ammoInfo(weapon).suggestedMax;
+    weapon.ammo_max = max;
+    weapon.ammo_count = max;
+    this.char.weapons = [...(this.char.weapons || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+  }
+
+  onWeaponAmmoChange(weapon: Weapon, field: 'ammo_count' | 'ammo_max', raw: unknown): void {
+    if (raw === '' || raw === null || raw === undefined) {
+      weapon[field] = null;
+    } else {
+      weapon[field] = Math.max(0, Math.trunc(Number(raw) || 0));
+    }
+    this.char.weapons = [...(this.char.weapons || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+  }
+
+  weaponUnitWeightLb(weapon: Weapon): number {
+    return effectiveWeaponUnitWeightLb(weapon);
+  }
+
+  onWeaponWeightChange(weapon: Weapon, raw: unknown): void {
+    weapon.weight =
+      raw === '' || raw === null || raw === undefined ? null : Math.max(0, Number(raw) || 0);
+    if (weapon.weight === null) {
+      delete weapon.resolved_weight_lb;
+    }
+    this.char.weapons = [...(this.char.weapons || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+  }
+
+  onWeaponNameChange(weapon: Weapon): void {
+    delete weapon.resolved_weight_lb;
+    this.char.weapons = [...(this.char.weapons || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+  }
+
+  toggleWeaponWeightIgnored(weapon: Weapon, event?: Event): void {
+    event?.stopPropagation();
+    weapon.weight_ignored = !weapon.weight_ignored;
+    this.char.weapons = [...(this.char.weapons || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
   }
 
   rollWeaponDamage(weapon: Weapon, crit = false): void {
@@ -1098,7 +1234,10 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     return combinedMatch ? Number(combinedMatch[1]) : null;
   }
 
-  onItemNameChange(): void {
+  onItemNameChange(item?: EquipmentItem): void {
+    if (item) {
+      delete item.resolved_weight_lb;
+    }
     this.invalidateEquipmentDerivedCache();
     this.cdr.markForCheck();
     this.save.emit();
@@ -1160,7 +1299,99 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
     const currentQty = item.quantity ?? 1;
     const newQty = Math.max(0, currentQty + delta);
     item.quantity = newQty;
+    this.char.equipment = [...(this.char.equipment || [])];
+    this.cdr.markForCheck();
     this.save.emit();
+  }
+
+  // --- Carrying Capacity & Consumables (#262) ---
+  get encumbrance(): EncumbranceSummary {
+    return computeEncumbranceSummary(this.char);
+  }
+
+  encumbranceTone(): 'accent' | 'danger' | 'success' | 'muted' {
+    switch (this.encumbrance.status) {
+      case 'over_capacity':
+      case 'heavily_encumbered':
+        return 'danger';
+      case 'encumbered':
+        return 'accent';
+      default:
+        return this.encumbrance.totalWeightLb > 0 ? 'success' : 'muted';
+    }
+  }
+
+  encumbranceBarClass(): string {
+    switch (this.encumbrance.status) {
+      case 'over_capacity':
+      case 'heavily_encumbered':
+        return 'bg-red';
+      case 'encumbered':
+        return 'bg-accent';
+      default:
+        return 'bg-emerald';
+    }
+  }
+
+  encumbranceStatusLabel(): string {
+    switch (this.encumbrance.status) {
+      case 'over_capacity':
+        return 'Over Capacity';
+      case 'heavily_encumbered':
+        return 'Heavy Load (10× STR)';
+      case 'encumbered':
+        return 'Encumbered (5× STR)';
+      default:
+        return 'Normal';
+    }
+  }
+
+  itemUnitWeightLb(item: EquipmentItem): number {
+    return effectiveItemUnitWeightLb(item);
+  }
+
+  itemTotalWeightLb(item: EquipmentItem): number {
+    if (item.weight_ignored) return 0;
+    const qty = item.quantity !== undefined && item.quantity !== null ? Math.max(0, Math.trunc(item.quantity)) : 1;
+    return Math.round(effectiveItemUnitWeightLb(item) * qty * 10) / 10;
+  }
+
+  onItemWeightChange(item: EquipmentItem, raw: unknown): void {
+    item.weight =
+      raw === '' || raw === null || raw === undefined ? null : Math.max(0, Number(raw) || 0);
+    if (item.weight === null) {
+      delete item.resolved_weight_lb;
+    }
+    this.char.equipment = [...(this.char.equipment || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+  }
+
+  toggleItemWeightIgnored(item: EquipmentItem, event?: Event): void {
+    event?.stopPropagation();
+    item.weight_ignored = !item.weight_ignored;
+    this.char.equipment = [...(this.char.equipment || [])];
+    this.cdr.markForCheck();
+    this.save.emit();
+  }
+
+  utilityConsumable(item: EquipmentItem): UtilityConsumableAction | null {
+    return classifyUtilityConsumable(item);
+  }
+
+  itemRemainingUses(item: EquipmentItem): { current: number; max: number } | null {
+    const action = this.utilityConsumable(item);
+    if (action?.kind !== 'charges') return null;
+    const max = item.uses_max ?? action.maxUses ?? 10;
+    const current = item.uses_current ?? max;
+    return { current, max };
+  }
+
+  useItemConsumable(item: EquipmentItem, event: Event): void {
+    event.stopPropagation();
+    const action = this.utilityConsumable(item);
+    if (!action) return;
+    this.useConsumable.emit({ item, action });
   }
 
   /** "Potion of Healing", "Greater Healing Potion 4d4 + 4", "superior healing potion"… */

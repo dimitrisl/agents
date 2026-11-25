@@ -166,6 +166,10 @@ def build_party_update_payload(
         "hit_dice_used": char_doc.get("hit_dice_used"),
         "spell_slots": char_doc.get("spell_slots"),
         "class_resources": char_doc.get("class_resources"),
+        "total_weight_lb": char_doc.get("total_weight_lb"),
+        "carrying_capacity_lb": char_doc.get("carrying_capacity_lb"),
+        "encumbrance_status": char_doc.get("encumbrance_status"),
+        "weight_breakdown": char_doc.get("weight_breakdown"),
         "version": char_doc.get("version"),
         "source": source,
     }
