@@ -2538,4 +2538,59 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     http.match(() => true).forEach((r) => r.flush({}));
     fixture.destroy();
   });
+
+  it('consumes utility consumables (Potion of Heroism non-stacking Temp HP & Healer Kit multi-use rollover) (#262)', () => {
+    const heroism = { name: 'Potion of Heroism', quantity: 1 };
+    const kit = { name: "Healer's Kit", quantity: 2, uses_current: 1, uses_max: 10 };
+    const { comp, http, charState, fixture } = setupPlayer({
+      char_id: 'consumable-262',
+      char_name: 'Kaelen',
+      hp_temp: 4,
+      exhaustion_level: 0,
+      equipment: [heroism as any, kit as any],
+      active_campaign: undefined,
+    });
+
+    const heroismAction = {
+      kind: 'temp_hp' as const,
+      label: 'Drink',
+      icon: '🛡️',
+      toastTitle: '🛡️ POTION OF HEROISM',
+      effectNote: '10 Temp HP',
+      tempHp: 10,
+    };
+    comp.onUseConsumable({ item: heroism as any, action: heroismAction });
+
+    let updated = charState.activeCharacter()!;
+    expect(updated.hp_temp).toBe(10); // max(4, 10) non-stacking Temp HP
+    expect(updated.equipment?.some((e) => e.name === 'Potion of Heroism')).toBe(false);
+
+    const kitItem = updated.equipment![0];
+    comp.onUseConsumable({
+      item: kitItem,
+      action: {
+        kind: 'charges',
+        label: 'Use',
+        icon: '🩹',
+        toastTitle: "🩹 HEALER'S KIT",
+        effectNote: 'Stabilized',
+        maxUses: 10,
+      },
+    });
+    updated = charState.activeCharacter()!;
+    expect(updated.equipment![0].quantity).toBe(1);
+    expect(updated.equipment![0].uses_current).toBe(10); // rolled over from 2 kits (1 use left) -> 1 kit (10 uses)
+
+    // L6 exhaustion blocks utility consumables & preserves kit uses / 0 temp HP
+    const rollToast = TestBed.inject(RollToastService);
+    const toastSpy = jest.spyOn(rollToast, 'showMessage');
+    charState.activeCharacter.set({ ...updated, hp_temp: 0, exhaustion_level: 6 });
+    comp.onUseConsumable({ item: charState.activeCharacter()!.equipment![0], action: heroismAction });
+    expect(charState.activeCharacter()!.hp_temp).toBe(0);
+    expect(charState.activeCharacter()!.equipment![0].uses_current).toBe(10);
+    expect(toastSpy).toHaveBeenCalledWith('💀 DECEASED', expect.any(String));
+
+    http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
+    fixture.destroy();
+  });
 });

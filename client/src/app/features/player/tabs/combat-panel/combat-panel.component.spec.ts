@@ -890,5 +890,110 @@ describe('CombatPanelComponent', () => {
       component.onItemNameChange();
       expect(component.weaponNotation(component.char.weapons![0])).toBe('1d8+7');
     });
+
+    it('tracks ammunition, decrements on rollAttack, blocks 0-ammo bows, allows Thrown melee fallback, and honors Repeating Shot', () => {
+      const saveSpy = jest.spyOn(component.save, 'emit');
+      const toastSpy = jest.spyOn(toast, 'showMessage');
+      const rollSpy = jest.spyOn(toast, 'showRoll');
+
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        weapons: [
+          {
+            name: 'Longbow',
+            attack_bonus: '+7',
+            damage_dice: '1d8+4 piercing',
+            properties: 'Ammunition (150/600), Heavy',
+            ammo_count: 1,
+            ammo_max: 20,
+          } as any,
+          {
+            name: 'Dagger',
+            attack_bonus: '+7',
+            damage_dice: '1d4+4 piercing',
+            properties: 'Finesse, Light, Thrown (20/60)',
+            ammo_count: 0,
+            ammo_max: 4,
+          } as any,
+          {
+            name: 'Repeating Shot Light Crossbow',
+            attack_bonus: '+7',
+            damage_dice: '1d8+4 piercing',
+            properties: 'Ammunition (80/320)',
+            ammo_count: 1,
+            ammo_max: 20,
+          } as any,
+        ],
+      });
+      fixture.detectChanges();
+
+      // 1 -> 0 decrements & saves
+      component.rollAttack(component.char.weapons![0]);
+      expect(component.char.weapons![0].ammo_count).toBe(0);
+      expect(saveSpy).toHaveBeenCalled();
+
+      // Shooting bow at 0 ammo warns & does not roll
+      rollSpy.mockClear();
+      component.rollAttack(component.char.weapons![0]);
+      expect(toastSpy).toHaveBeenCalledWith('⚠️ OUT OF AMMUNITION', expect.any(String));
+      expect(rollSpy).not.toHaveBeenCalled();
+
+      // Recover half expended (20 - 0 = 20 -> recover 10)
+      component.recoverAmmoHalf(component.char.weapons![0]);
+      expect(component.char.weapons![0].ammo_count).toBe(10);
+
+      // Thrown weapon at 0 warns melee fallback & still rolls without going negative
+      component.rollAttack(component.char.weapons![1]);
+      expect(toastSpy).toHaveBeenCalledWith('🏹 NO THROWN STOCK LEFT', expect.any(String));
+      expect(rollSpy).toHaveBeenCalled();
+      expect(component.char.weapons![1].ammo_count).toBe(0);
+
+      // Repeating Shot never decrements ammo
+      component.rollAttack(component.char.weapons![2]);
+      expect(component.char.weapons![2].ammo_count).toBe(1);
+    });
+
+    it('renders encumbrance meter, handles weight_ignored stash, and emits utility consumables', () => {
+      const consumableSpy = jest.spyOn(component.useConsumable, 'emit');
+      fixture.componentRef.setInput('char', {
+        ...component.char,
+        stats: { STR: 10, DEX: 14, CON: 14, INT: 10, WIS: 12, CHA: 8 }, // cap = 150 lb
+        currency: { cp: 0, sp: 0, ep: 0, gp: 50, pp: 0 }, // 1 lb
+        weapons: [{ name: 'Battleaxe', attack_bonus: '+5' } as any], // 4 lb
+        equipment: [
+          { name: 'Chain Mail', equipped: true, quantity: 1 } as any, // 55 lb
+          { name: 'Potion of Heroism', equipped: false, quantity: 2 } as any, // 1 lb
+          { name: "Healer's Kit", equipped: false, quantity: 1, uses_current: 7, uses_max: 10 } as any, // 3 lb
+        ],
+      });
+      fixture.detectChanges();
+
+      expect(component.encumbrance.totalWeightLb).toBe(64);
+      expect(component.encumbrance.capacityLb).toBe(150);
+      expect(component.encumbranceStatusLabel()).toBe('Encumbered (5× STR)');
+
+      // Stashing Chain Mail excludes its 55 lb immediately -> drops below 5× STR (50 lb)
+      component.toggleItemWeightIgnored(component.char.equipment![0]);
+      expect(component.encumbrance.totalWeightLb).toBe(9);
+      expect(component.encumbranceStatusLabel()).toBe('Normal');
+
+      component.useItemConsumable(component.char.equipment![1], new MouseEvent('click'));
+      expect(consumableSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          item: component.char.equipment![1],
+          action: expect.objectContaining({ kind: 'temp_hp', tempHp: 10 }),
+        })
+      );
+      expect(component.itemRemainingUses(component.char.equipment![2])).toEqual({ current: 7, max: 10 });
+
+      // Renaming or clearing explicit weight drops stale resolved_weight_lb cleanly
+      const plate: any = { name: 'Plate Armor', resolved_weight_lb: 65, quantity: 1 };
+      component.char.equipment = [plate];
+      expect(component.itemTotalWeightLb(plate)).toBe(65);
+      plate.name = 'Backpack';
+      component.onItemNameChange(plate);
+      expect(plate.resolved_weight_lb).toBeUndefined();
+      expect(component.itemTotalWeightLb(plate)).toBe(5);
+    });
   });
 });

@@ -1135,5 +1135,205 @@
         "cost_gp": 12,
         "rarity": "Common",
         "description": "Backpack, crowbar, hammer, 10 pitons, 10 torches, tinderbox, 10 days of rations, waterskin, and 50 ft hempen rope."
+    },
+    {
+        "name": "Arrows (20)",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 1,
+        "rarity": "Common",
+        "description": "A bundle of 20 standard arrows for bows."
+    },
+    {
+        "name": "Arrow",
+        "type": "Adventuring Gear",
+        "weight": 0.05,
+        "cost_gp": 0.05,
+        "rarity": "Common",
+        "description": "A single standard arrow (20 arrows weigh 1 lb)."
+    },
+    {
+        "name": "Crossbow Bolts (20)",
+        "type": "Adventuring Gear",
+        "weight": 1.5,
+        "cost_gp": 1,
+        "rarity": "Common",
+        "description": "A bundle of 20 standard bolts for crossbows."
+    },
+    {
+        "name": "Crossbow Bolt",
+        "type": "Adventuring Gear",
+        "weight": 0.075,
+        "cost_gp": 0.05,
+        "rarity": "Common",
+        "description": "A single standard crossbow bolt (20 bolts weigh 1.5 lb)."
+    },
+    {
+        "name": "Sling Bullets (20)",
+        "type": "Adventuring Gear",
+        "weight": 1.5,
+        "cost_gp": 0.04,
+        "rarity": "Common",
+        "description": "A pouch of 20 lead sling bullets."
+    },
+    {
+        "name": "Sling Bullet",
+        "type": "Adventuring Gear",
+        "weight": 0.075,
+        "cost_gp": 0.002,
+        "rarity": "Common",
+        "description": "A single lead sling bullet."
+    },
+    {
+        "name": "Blowgun Needles (50)",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 1,
+        "rarity": "Common",
+        "description": "A bundle of 50 blowgun needles."
+    },
+    {
+        "name": "Blowgun Needle",
+        "type": "Adventuring Gear",
+        "weight": 0.02,
+        "cost_gp": 0.02,
+        "rarity": "Common",
+        "description": "A single blowgun needle."
+    },
+    {
+        "name": "Quiver",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 1,
+        "rarity": "Common",
+        "description": "A quiver holds up to 20 arrows."
+    },
+    {
+        "name": "Crossbow Bolt Case",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 1,
+        "rarity": "Common",
+        "description": "A wooden case holding up to 20 crossbow bolts."
+    },
+    {
+        "name": "Backpack",
+        "type": "Adventuring Gear",
+        "weight": 5,
+        "cost_gp": 2,
+        "rarity": "Common",
+        "description": "A leather pack holding up to 1 cubic foot or 30 pounds of gear."
+    },
+    {
+        "name": "Bedroll",
+        "type": "Adventuring Gear",
+        "weight": 7,
+        "cost_gp": 1,
+        "rarity": "Common",
+        "description": "Standard heavy blanket and sleeping roll for camp."
+    },
+    {
+        "name": "Pouch",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 0.5,
+        "rarity": "Common",
+        "description": "A cloth or leather belt pouch holding up to 6 pounds of small items or 300 coins."
+    },
+    {
+        "name": "Rations (1 day)",
+        "type": "Adventuring Gear",
+        "weight": 2,
+        "cost_gp": 0.5,
+        "rarity": "Common",
+        "description": "Dry foods suitable for extended travel, including jerky, dried fruit, hardtack, and nuts."
+    },
+    {
+        "name": "Rope, Hempen (50 ft.)",
+        "type": "Adventuring Gear",
+        "weight": 10,
+        "cost_gp": 1,
+        "rarity": "Common",
+        "description": "Hempen rope has 2 hit points and can be burst with a DC 17 Strength check."
+    },
+    {
+        "name": "Rope, Silk (50 ft.)",
+        "type": "Adventuring Gear",
+        "weight": 5,
+        "cost_gp": 10,
+        "rarity": "Common",
+        "description": "Silk rope has 2 hit points and can be burst with a DC 17 Strength check."
+    },
+    {
+        "name": "Torch",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 0.01,
+        "rarity": "Common",
+        "description": "Burns for 1 hour, casting bright light in a 20-foot radius and dim light for an additional 20 feet."
+    },
+    {
+        "name": "Waterskin",
+        "type": "Adventuring Gear",
+        "weight": 5,
+        "cost_gp": 0.2,
+        "rarity": "Common",
+        "description": "Holds 4 pints of liquid (weighs 5 lb when full)."
+    },
+    {
+        "name": "Tinderbox",
+        "type": "Adventuring Gear",
+        "weight": 1,
+        "cost_gp": 0.5,
+        "rarity": "Common",
+        "description": "Small container holding flint, fire steel, and tinder for lighting fires."
+    },
+    {
+        "name": "Crowbar",
+        "type": "Adventuring Gear",
+        "weight": 5,
+        "cost_gp": 2,
+        "rarity": "Common",
+        "description": "Using a crowbar grants Advantage to Strength checks where the crowbar's leverage can be applied."
+    },
+    {
+        "name": "Lantern, Hooded",
+        "type": "Adventuring Gear",
+        "weight": 2,
+        "cost_gp": 5,
+        "rarity": "Common",
+        "description": "Casts bright light in a 30-foot radius and dim light for an additional 30 feet (burns 6 hours per flask of oil)."
+    },
+    {
+        "name": "Common Clothes",
+        "type": "Adventuring Gear",
+        "weight": 3,
+        "cost_gp": 0.5,
+        "rarity": "Common",
+        "description": "Everyday tunic, trousers, and sturdy boots."
+    },
+    {
+        "name": "Traveler's Clothes",
+        "type": "Adventuring Gear",
+        "weight": 4,
+        "cost_gp": 2,
+        "rarity": "Common",
+        "description": "Weather-resistant boots, cloak, and travel garments."
+    },
+    {
+        "name": "Fine Clothes",
+        "type": "Adventuring Gear",
+        "weight": 6,
+        "cost_gp": 15,
+        "rarity": "Common",
+        "description": "Noble or formal attire."
+    },
+    {
+        "name": "Spellbook",
+        "type": "Adventuring Gear",
+        "weight": 3,
+        "cost_gp": 50,
+        "rarity": "Common",
+        "description": "Leather-bound tome with 100 blank vellum pages for recording wizard spells."
     }
 ]

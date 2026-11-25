@@ -1,3 +1,4 @@
+import math
 import re
 import uuid
 from builtins import int as BuiltinInt
@@ -5,6 +6,32 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
+
+
+def _parse_weight_field(v: Any) -> Optional[float]:
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        val = float(v)
+        return max(0.0, val) if math.isfinite(val) else None
+    text = str(v).strip()
+    if not text:
+        return None
+    if re.match(r"^\s*-", text):
+        return 0.0
+    mixed = re.search(r"(\d+)\s+(\d+)\s*/\s*(\d+)", text)
+    if mixed and BuiltinInt(mixed.group(3)) != 0:
+        return max(
+            0.0,
+            float(
+                BuiltinInt(mixed.group(1)) + BuiltinInt(mixed.group(2)) / BuiltinInt(mixed.group(3))
+            ),
+        )
+    frac = re.search(r"(\d+)\s*/\s*(\d+)", text)
+    if frac and BuiltinInt(frac.group(2)) != 0:
+        return max(0.0, float(BuiltinInt(frac.group(1)) / BuiltinInt(frac.group(2))))
+    match = re.search(r"(\d+(?:\.\d+)?|\.\d+)", text)
+    return max(0.0, float(match.group(1))) if match else None
 
 
 class StatBlock(BaseModel):
@@ -97,6 +124,26 @@ class Weapon(BaseModel):
     dm_attack_bonus_applied: int = 0
     dm_damage_bonus_applied: int = 0
     magic_bonus_suppressed_applied: int = 0
+    ammo_count: Optional[int] = None
+    ammo_max: Optional[int] = None
+    weight: Optional[float] = None
+    resolved_weight_lb: Optional[float] = None
+    weight_ignored: bool = False
+
+    @field_validator("ammo_count", "ammo_max", mode="before")
+    @classmethod
+    def validate_non_negative_ammo(cls, v: Any) -> Optional[int]:
+        if v is None or isinstance(v, bool) or (isinstance(v, str) and not v.strip()):
+            return None
+        try:
+            return max(0, BuiltinInt(v))
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator("weight", "resolved_weight_lb", mode="before")
+    @classmethod
+    def validate_weapon_weight(cls, v: Any) -> Optional[float]:
+        return _parse_weight_field(v)
 
     @field_validator("properties", "range", mode="before")
     @classmethod
@@ -240,6 +287,11 @@ class EquipmentItem(BaseModel):
     mod2: str = "None"
     val2: int = 0
     description: Optional[str] = ""
+    weight: Optional[float] = None
+    resolved_weight_lb: Optional[float] = None
+    weight_ignored: bool = False
+    uses_current: Optional[int] = None
+    uses_max: Optional[int] = None
 
     @field_validator("quantity", mode="before")
     @classmethod
@@ -251,6 +303,21 @@ class EquipmentItem(BaseModel):
             return max(0, val)
         except (ValueError, TypeError):
             return 1
+
+    @field_validator("weight", "resolved_weight_lb", mode="before")
+    @classmethod
+    def validate_item_weight(cls, v: Any) -> Optional[float]:
+        return _parse_weight_field(v)
+
+    @field_validator("uses_current", "uses_max", mode="before")
+    @classmethod
+    def validate_uses_field(cls, v: Any) -> Optional[int]:
+        if v is None or isinstance(v, bool) or (isinstance(v, str) and not v.strip()):
+            return None
+        try:
+            return max(0, BuiltinInt(v))
+        except (ValueError, TypeError):
+            return None
 
 
 class FeatureTrait(BaseModel):
@@ -438,6 +505,37 @@ class CharacterSchema(BaseModel):
     dm_hp_bonus_applied: Optional[int] = 0
     currency: CurrencySchema = Field(default_factory=CurrencySchema)
     class_resources: List[ClassResourceSchema] = Field(default_factory=list)
+    total_weight_lb: float = 0.0
+    carrying_capacity_lb: float = 150.0
+    encumbrance_status: str = "unencumbered"
+    weight_breakdown: Optional[Dict[str, Any]] = None
+
+    @field_validator("total_weight_lb", mode="before")
+    @classmethod
+    def coerce_total_weight(cls, v: Any) -> float:
+        if v is None or isinstance(v, bool):
+            return 0.0
+        try:
+            return max(0.0, round(float(v), 2))
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator("carrying_capacity_lb", mode="before")
+    @classmethod
+    def coerce_carrying_capacity(cls, v: Any) -> float:
+        if v is None or isinstance(v, bool):
+            return 150.0
+        try:
+            return max(0.0, round(float(v), 1))
+        except (ValueError, TypeError):
+            return 150.0
+
+    @field_validator("encumbrance_status", mode="before")
+    @classmethod
+    def coerce_encumbrance_status(cls, v: Any) -> str:
+        allowed = {"unencumbered", "encumbered", "heavily_encumbered", "over_capacity"}
+        s = str(v or "unencumbered").strip().lower()
+        return s if s in allowed else "unencumbered"
 
     @field_validator("currency", mode="before")
     @classmethod
