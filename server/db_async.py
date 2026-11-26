@@ -135,6 +135,17 @@ INDEX_DEFINITIONS = [
         [("campaign_name", pymongo.ASCENDING)],
         {"name": "idx_campaign_assets_campaign_name"},
     ),
+    # DM Story Scenes & Visual Handouts (#288)
+    (
+        "campaign_story_scenes",
+        [("scene_id", pymongo.ASCENDING)],
+        {"unique": True, "name": "uniq_campaign_story_scenes_scene_id"},
+    ),
+    (
+        "campaign_story_scenes",
+        [("campaign_name", pymongo.ASCENDING), ("order", pymongo.ASCENDING)],
+        {"name": "idx_campaign_story_scenes_campaign_order"},
+    ),
     # Bestiary: custom monsters collection (#Milestone 2)
     (
         "custom_monsters",

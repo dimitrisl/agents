@@ -1221,11 +1221,12 @@ describe('DmComponent — Master Modes & Tab Navigation', () => {
 
     it('returns live tabs by default via activeTabs getter', () => {
       expect(component.activeTabs).toBe(component.liveTabs);
-      expect(component.activeTabs.map((t) => t.id)).toEqual(['initiative', 'vtt', 'party', 'notes']);
+      expect(component.activeTabs.map((t) => t.id)).toEqual(['initiative', 'vtt', 'scenes', 'party', 'notes']);
       expect(component.activeTabs[0].label).toContain('Combat & Initiative');
       expect(component.activeTabs[1].label).toContain('Tactical VTT Map');
-      expect(component.activeTabs[2].label).toContain('Party Status');
-      expect(component.activeTabs[3].label).toContain('Live Notes');
+      expect(component.activeTabs[2].label).toContain('Scene Caster');
+      expect(component.activeTabs[3].label).toContain('Party Status');
+      expect(component.activeTabs[4].label).toContain('Live Notes');
     });
 
     it('exposes dmTabs as an alias to activeTabs for backward compatibility', () => {
@@ -1240,7 +1241,8 @@ describe('DmComponent — Master Modes & Tab Navigation', () => {
       expect(component.dmMode).toBe('prep');
       expect(component.activeTab).toBe('homebrew');
       expect(component.activeTabs).toBe(component.prepTabs);
-      expect(component.activeTabs.map((t) => t.id)).toEqual(['homebrew', 'generators', 'prep', 'entities']);
+      expect(component.activeTabs.map((t) => t.id)).toEqual(['homebrew', 'generators', 'prep', 'entities', 'scenes']);
+      expect(component.activeTabs[4].label).toContain('Story Scenes');
     });
 
     it('does not re-trigger or change tabs when setDmMode is called with the current mode', () => {
@@ -2110,5 +2112,151 @@ describe('DmComponent — Exhaustion, Unlocks, Athas, Modifiers & 2014 Secret/Qu
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('lazy-loads story scenes & entities for Scene Caster, auto-saves dirty edits before casting, and clears popups (#288)', () => {
+    component.openSceneCasterModal();
+    expect(component.showSceneCasterModal).toBe(true);
+
+    const entReq = http.expectOne((r) => r.method === 'GET' && r.url.endsWith('/campaigns/Dark%20Sun%20Athas/entities'));
+    entReq.flush([]);
+    const sceneReq = http.expectOne((r) => r.method === 'GET' && r.url.endsWith('/campaigns/Dark%20Sun%20Athas/story-scenes'));
+    sceneReq.flush([
+      {
+        scene_id: 'sc-1',
+        campaign_name: 'Dark Sun Athas',
+        title: 'Gladiator Pit',
+        dm_notes: 'Hidden archers',
+        cards: [
+          {
+            card_id: 'card-1',
+            title: 'Templar Overseer',
+            image_url: 'https://example.com/templar.png',
+            caption: 'Kneel before Kalak.',
+            dm_notes: '',
+          },
+        ],
+      },
+    ]);
+    expect(component.storyScenes.length).toBe(1);
+
+    // Casting a dirty scene saves PUT first, then calls POST /cast
+    component.castStoryCard({
+      scene: component.storyScenes[0],
+      card: component.storyScenes[0].cards[0],
+      dirty: true,
+      targetMode: 'selected',
+      targetCharIds: ['pal_1'],
+    });
+    const putReq = http.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/story-scenes/sc-1'));
+    putReq.flush(component.storyScenes[0]);
+
+    const castReq = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('/story-scenes/sc-1/cast'));
+    expect(castReq.request.body).toEqual({
+      card_id: 'card-1',
+      target_mode: 'selected',
+      target_char_ids: ['pal_1'],
+    });
+    castReq.flush({ success: true, message: 'Cast to selected.' });
+    expect(component.lastCastCardId).toBe('card-1');
+
+    // Remote dismiss calls POST /dismiss and clears lastCastCardId
+    component.dismissStoryPopup({ targetMode: 'all', targetCharIds: [] });
+    const disReq = http.expectOne((r) => r.method === 'POST' && r.url.endsWith('/story-scenes/dismiss'));
+    expect(disReq.request.body).toEqual({ target_mode: 'all', target_char_ids: [] });
+    disReq.flush({ success: true, message: 'Dismissed.' });
+    expect(component.lastCastCardId).toBeNull();
+  });
+
+  it('omits order on saveStoryScene, formats 422 array errors, tracks requestId uploads, and resets story state on clearWorkspace (#288)', () => {
+    const toastSpy = jest.spyOn(toast, 'showMessage');
+    const scene = {
+      scene_id: 'sc-1',
+      campaign_name: 'Dark Sun Athas',
+      title: 'Arena',
+      dm_notes: 'Secret',
+      order: 2,
+      cards: [
+        {
+          card_id: 'c1',
+          title: 'Gate',
+          image_url: 'https://example.com/gate.png',
+          caption: '',
+          dm_notes: '',
+        },
+      ],
+    };
+    component.storyScenes = [scene];
+    component.selectedStorySceneId = 'sc-1';
+
+    // 1. Upload attaches requestId-keyed result
+    const file = new File(['abc'], 'gate.png', { type: 'image/png' });
+    component.uploadStoryCardImage({ requestId: 'req-42', file });
+    expect(component.uploadingStoryRequestId).toBe('req-42');
+    const upReq = http.expectOne(
+      (r) => r.method === 'POST' && r.url.endsWith('/campaigns/Dark%20Sun%20Athas/assets')
+    );
+    upReq.flush({ url: '/api/v1/campaigns/Dark%20Sun%20Athas/assets/gate.png' });
+    expect(component.uploadingStoryRequestId).toBeNull();
+    expect(component.uploadedStoryAssetResult).toEqual({
+      requestId: 'req-42',
+      url: '/api/v1/campaigns/Dark%20Sun%20Athas/assets/gate.png',
+    });
+
+    // 2. Save omits `order`, bumps storySaveSuccessSeq, and clears uploadedStoryAssetResult
+    const prevSeq = component.storySaveSuccessSeq;
+    component.saveStoryScene(scene);
+    const putReq = http.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/story-scenes/sc-1'));
+    expect(putReq.request.body).toEqual({
+      title: 'Arena',
+      dm_notes: 'Secret',
+      cards: scene.cards,
+    });
+    expect('order' in putReq.request.body).toBe(false);
+    putReq.flush(scene);
+    expect(component.storySaveSuccessSeq).toBe(prevSeq + 1);
+    expect(component.uploadedStoryAssetResult).toBeNull();
+
+    // 3. FastAPI 422 array detail is formatted cleanly (no [object Object])
+    component.saveStoryScene(scene);
+    const errReq = http.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/story-scenes/sc-1'));
+    errReq.flush(
+      { detail: [{ loc: ['body', 'cards', 0, 'image_url'], msg: 'Value error, Invalid URL', type: 'value_error' }] },
+      { status: 422, statusText: 'Unprocessable Entity' }
+    );
+    expect(component.storySaveSuccessSeq).toBe(prevSeq + 1);
+    expect(toastSpy).toHaveBeenCalledWith('⚠️ SAVE FAILED', 'Value error, Invalid URL');
+
+    // 4. clearWorkspace resets all Story Scene state
+    (component as any).clearWorkspace();
+    expect(component.storyScenes).toEqual([]);
+    expect(component.selectedStorySceneId).toBeNull();
+    expect(component.uploadedStoryAssetResult).toBeNull();
+    expect(component.showSceneCasterModal).toBe(false);
+  });
+
+  it('reorders sparse post-deletion story scene orders by swapping server orders without corrupting other scenes (#288)', () => {
+    component.storyScenes = [
+      { scene_id: 's4', title: 'Scene 4', dm_notes: '', order: 4, cards: [] },
+      { scene_id: 's5', title: 'Scene 5', dm_notes: '', order: 5, cards: [] },
+      { scene_id: 's6', title: 'Scene 6', dm_notes: '', order: 6, cards: [] },
+      { scene_id: 's7', title: 'Scene 7', dm_notes: '', order: 7, cards: [] },
+    ];
+
+    component.reorderStoryScene({ sceneId: 's6', direction: 1 });
+    expect(component.storyScenes.map((s) => `${s.scene_id}:${s.order}`)).toEqual([
+      's4:4',
+      's5:5',
+      's7:6',
+      's6:7',
+    ]);
+
+    const req6 = http.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/story-scenes/s6'));
+    expect(req6.request.body).toEqual({ order: 7 });
+    req6.flush({ ...component.storyScenes[3] });
+
+    const req7 = http.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/story-scenes/s7'));
+    expect(req7.request.body).toEqual({ order: 6 });
+    req7.flush({ ...component.storyScenes[2] });
   });
 });

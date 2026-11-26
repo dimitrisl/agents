@@ -1,0 +1,23 @@
+<forge-modal
+  title="🎬 Live Scene Caster"
+  [open]="open"
+  (openChange)="openChange.emit($event)"
+  (closed)="closed.emit()"
+  maxWidth="900px"
+>
+  <app-story-scenes-panel
+    [compact]="true"
+    [scenes]="scenes"
+    [partyMembers]="partyMembers"
+    [entities]="entities"
+    [selectedSceneId]="selectedSceneId"
+    [loading]="loading"
+    [busyCardId]="busyCardId"
+    [dismissing]="dismissing"
+    [lastCastCardId]="lastCastCardId"
+    (selectedSceneIdChange)="selectedSceneIdChange.emit($event)"
+    (castCard)="castCard.emit($event)"
+    (dismissPopup)="dismissPopup.emit($event)"
+    (openPrepEditor)="openPrepEditor.emit()"
+  ></app-story-scenes-panel>
+</forge-modal>

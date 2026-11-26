@@ -8,14 +8,17 @@ import { AuthService } from '../../core/services/auth.service';
 import { RollToastService } from '../../core/services/roll-toast.service';
 import { CharacterStateService } from '../../core/services/character-state.service';
 import { DiceService } from '../../core/services/dice.service';
-import { Subscription } from 'rxjs';
-import { Subject, EMPTY } from 'rxjs';
+import { Subscription, Subject, EMPTY, forkJoin } from 'rxjs';
 import { debounceTime, catchError, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { WebSocketService, WsMessage } from '../../core/services/websocket.service';
 import { HomebrewService, HomebrewItem } from '../../core/services/homebrew.service';
 import { BestiaryService } from '../../core/services/bestiary.service';
+import { StorySceneService } from '../../core/services/story-scene.service';
+import { CampaignEntityService } from '../../core/services/campaign-entity.service';
+import { AssetService } from '../../core/services/asset.service';
 import type { BestiaryMonster } from '../../core/models/bestiary.model';
 import type { CampaignEntity } from '../../core/models/campaign-entity.model';
+import type { StoryScene } from '../../core/models/story-scene.model';
 import {
   Campaign,
   CampaignMessages,
@@ -75,6 +78,15 @@ import {
   DmModifiersSaveEvent,
 } from './modals/dm-modifiers-modal/dm-modifiers-modal.component';
 import { DmInboxComponent } from './dm-inbox/dm-inbox.component';
+import {
+  StoryCardCastEvent,
+  StoryCardImageUploadEvent,
+  StoryDismissEvent,
+  StorySceneReorderEvent,
+  StoryScenesPanelComponent,
+  StoryUploadResult,
+} from './panels/story-scenes-panel/story-scenes-panel.component';
+import { SceneCasterModalComponent } from './modals/scene-caster-modal/scene-caster-modal.component';
 
 import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
 
@@ -127,8 +139,8 @@ interface PartyStatePayload extends PartyStateChanges {
 const PARTY_STATE_DEBOUNCE_MS = 400;
 
 export type DmMasterMode = 'live' | 'prep';
-export type DmLiveTab = 'initiative' | 'vtt' | 'party' | 'notes';
-export type DmPrepTab = 'homebrew' | 'generators' | 'prep' | 'entities';
+export type DmLiveTab = 'initiative' | 'vtt' | 'scenes' | 'party' | 'notes';
+export type DmPrepTab = 'homebrew' | 'generators' | 'prep' | 'entities' | 'scenes';
 export type DmTab = DmLiveTab | DmPrepTab;
 
 @Component({
@@ -159,6 +171,8 @@ export type DmTab = DmLiveTab | DmPrepTab;
     LootDistributeModalComponent,
     DmModifiersModalComponent,
     DmInboxComponent,
+    StoryScenesPanelComponent,
+    SceneCasterModalComponent,
     VttGridComponent,
   ],
   templateUrl: './dm.component.html',
@@ -174,6 +188,7 @@ export class DmComponent implements OnInit, OnDestroy {
   readonly liveTabs: ForgeTab[] = [
     { id: 'initiative', label: '⚔️ Combat & Initiative' },
     { id: 'vtt', label: '🗺️ Tactical VTT Map' },
+    { id: 'scenes', label: '🎬 Scene Caster' },
     { id: 'party', label: '🛡️ Party Status' },
     { id: 'notes', label: '📓 Live Notes' },
   ];
@@ -183,6 +198,7 @@ export class DmComponent implements OnInit, OnDestroy {
     { id: 'generators', label: '🎲 AI Generators' },
     { id: 'prep', label: '📅 Plot Architect & Session Logs' },
     { id: 'entities', label: '🏰 World Entities Vault' },
+    { id: 'scenes', label: '🎭 Story Scenes' },
   ];
 
   get activeTabs(): ForgeTab[] {
@@ -242,6 +258,22 @@ export class DmComponent implements OnInit, OnDestroy {
   showModifiersModal = false;
   selectedModifierMember: PartyMember | null = null;
   homebrewItems: HomebrewItem[] = [];
+
+  // --- DM Story Scenes & Visual Handout Pop-ups (#288) ---
+  storyScenes: StoryScene[] = [];
+  storyEntities: CampaignEntity[] = [];
+  selectedStorySceneId: string | null = null;
+  showSceneCasterModal = false;
+  loadingStoryScenes = false;
+  savingStoryScene = false;
+  uploadingStoryRequestId: string | null = null;
+  castingStoryCardId: string | null = null;
+  dismissingStoryPopup = false;
+  lastCastCardId: string | null = null;
+  uploadedStoryAssetResult: StoryUploadResult | null = null;
+  storySaveSuccessSeq = 0;
+  private loadedStoryScenesCampaign: string | null = null;
+  private loadedStoryEntitiesCampaign: string | null = null;
 
   whisperRecipient = 'All';
   whisperMessage = '';
@@ -358,6 +390,9 @@ export class DmComponent implements OnInit, OnDestroy {
   selectedExistingCharId = '';
 
   private readonly destroyRef = inject(DestroyRef);
+  private readonly storySceneService = inject(StorySceneService);
+  private readonly campaignEntityService = inject(CampaignEntityService);
+  private readonly assetService = inject(AssetService);
 
   constructor(
     private confirmDialog: ForgeConfirmService,
@@ -383,6 +418,9 @@ export class DmComponent implements OnInit, OnDestroy {
 
     this.dmMode = mode;
     this.activeTab = mode === 'live' ? this.lastLiveTab : this.lastPrepTab;
+    if (this.activeTab === 'scenes') {
+      this.ensureStoryScenesLoaded();
+    }
   }
 
   onTabChange(tabId: string): void {
@@ -392,6 +430,22 @@ export class DmComponent implements OnInit, OnDestroy {
     } else {
       this.lastPrepTab = tabId as DmPrepTab;
     }
+    if (tabId === 'scenes') {
+      this.ensureStoryScenesLoaded();
+    }
+  }
+
+  openSceneCasterModal(): void {
+    this.showSceneCasterModal = true;
+    this.ensureStoryScenesLoaded();
+  }
+
+  openStoryPrepFromCaster(): void {
+    this.showSceneCasterModal = false;
+    this.dmMode = 'prep';
+    this.activeTab = 'scenes';
+    this.lastPrepTab = 'scenes';
+    this.ensureStoryScenesLoaded();
   }
 
   openVTT(): void {
@@ -982,6 +1036,23 @@ export class DmComponent implements OnInit, OnDestroy {
     this.riddleTheme = '';
     this.encounterResult = null;
     this.npcResult = '';
+    this.resetStorySceneState();
+  }
+
+  private resetStorySceneState(): void {
+    this.storyScenes = [];
+    this.storyEntities = [];
+    this.selectedStorySceneId = null;
+    this.loadedStoryScenesCampaign = null;
+    this.loadedStoryEntitiesCampaign = null;
+    this.showSceneCasterModal = false;
+    this.loadingStoryScenes = false;
+    this.savingStoryScene = false;
+    this.uploadingStoryRequestId = null;
+    this.castingStoryCardId = null;
+    this.dismissingStoryPopup = false;
+    this.lastCastCardId = null;
+    this.uploadedStoryAssetResult = null;
   }
 
   onCampaignSelect() {
@@ -1030,7 +1101,11 @@ export class DmComponent implements OnInit, OnDestroy {
     this.showDmInbox = false;
     this.inboxReplyMessage = '';
     this.inboxReplyRecipient = 'All';
+    this.resetStorySceneState();
     this.loadParty();
+    if (this.activeTab === 'scenes') {
+      this.ensureStoryScenesLoaded();
+    }
 
     if (!isFirstLoad) {
       this.rollToast.showMessage('🏰 CAMPAIGN SWITCHED', `Active workspace set to "${this.campaignName}".`);
@@ -2829,5 +2904,364 @@ export class DmComponent implements OnInit, OnDestroy {
         this.rollToast.showMessage('❌ ERROR', 'Failed to delete campaign.');
       }
     });
+  }
+
+  // --- DM Story Scenes & Ephemeral Player Handout Casting (#288) ---
+
+  private formatApiError(err: any, fallback: string): string {
+    const detail = err?.error?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail;
+    }
+    if (Array.isArray(detail) && detail.length > 0) {
+      const messages = detail
+        .map((item) => {
+          if (typeof item === 'string') return item;
+          if (item && typeof item === 'object' && typeof item.msg === 'string') {
+            return item.msg;
+          }
+          return '';
+        })
+        .filter((m) => !!m.trim());
+      if (messages.length > 0) {
+        return messages.join(' · ');
+      }
+    }
+    return fallback;
+  }
+
+  ensureStoryScenesLoaded(forceRefresh = false): void {
+    const requestedCampaign = this.campaignName;
+    if (!requestedCampaign) return;
+
+    if (
+      forceRefresh ||
+      this.dmMode === 'prep' ||
+      this.loadedStoryEntitiesCampaign !== requestedCampaign
+    ) {
+      this.campaignEntityService
+        .getEntities(requestedCampaign)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (entities) => {
+            if (this.campaignName === requestedCampaign) {
+              this.storyEntities = entities;
+              this.loadedStoryEntitiesCampaign = requestedCampaign;
+            }
+          },
+          error: () => {
+            // Non-blocking: entity portrait picker remains optional
+          },
+        });
+    }
+
+    if (!forceRefresh && this.loadedStoryScenesCampaign === requestedCampaign) {
+      return;
+    }
+
+    this.loadingStoryScenes = true;
+    this.storySceneService
+      .listScenes(requestedCampaign)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (scenes) => {
+          if (this.campaignName !== requestedCampaign) return;
+          this.storyScenes = scenes;
+          if (!scenes.some((s) => s.scene_id === this.selectedStorySceneId)) {
+            this.selectedStorySceneId = scenes[0]?.scene_id ?? null;
+          }
+          this.loadedStoryScenesCampaign = requestedCampaign;
+          this.loadingStoryScenes = false;
+        },
+        error: (err) => {
+          if (this.campaignName !== requestedCampaign) return;
+          this.loadingStoryScenes = false;
+          this.handleAuthFailure(err);
+          this.rollToast.showMessage('⚠️ LOAD FAILED', 'Failed to load story scenes.');
+        },
+      });
+  }
+
+  createStoryScene(event: { title: string }): void {
+    const camp = this.campaignName;
+    if (!camp || !event.title.trim()) return;
+    this.savingStoryScene = true;
+    this.storySceneService
+      .createScene(camp, {
+        title: event.title.trim(),
+        dm_notes: '',
+        cards: [],
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (created) => {
+          if (this.campaignName !== camp) return;
+          this.savingStoryScene = false;
+          this.storyScenes = [...this.storyScenes, created];
+          this.selectedStorySceneId = created.scene_id ?? null;
+          this.loadedStoryScenesCampaign = camp;
+          this.rollToast.showMessage('🎭 SCENE CREATED', `Added "${created.title}".`);
+        },
+        error: (err) => {
+          if (this.campaignName !== camp) return;
+          this.savingStoryScene = false;
+          this.handleAuthFailure(err);
+          this.rollToast.showMessage(
+            '⚠️ CREATE FAILED',
+            this.formatApiError(err, 'Could not create story scene.')
+          );
+        },
+      });
+  }
+
+  saveStoryScene(scene: StoryScene): void {
+    const camp = this.campaignName;
+    if (!camp || !scene.scene_id) return;
+    this.savingStoryScene = true;
+    this.storySceneService
+      .updateScene(camp, scene.scene_id, {
+        title: scene.title,
+        dm_notes: scene.dm_notes,
+        cards: scene.cards,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          if (this.campaignName !== camp) return;
+          this.savingStoryScene = false;
+          this.storyScenes = this.storyScenes.map((s) =>
+            s.scene_id === updated.scene_id ? updated : s
+          );
+          this.uploadedStoryAssetResult = null;
+          this.storySaveSuccessSeq += 1;
+          this.rollToast.showMessage('✅ SCENE SAVED', `Saved "${updated.title}".`);
+        },
+        error: (err) => {
+          if (this.campaignName !== camp) return;
+          this.savingStoryScene = false;
+          this.handleAuthFailure(err);
+          this.rollToast.showMessage(
+            '⚠️ SAVE FAILED',
+            this.formatApiError(err, 'Could not save story scene.')
+          );
+        },
+      });
+  }
+
+  async deleteStoryScene(scene: StoryScene): Promise<void> {
+    const camp = this.campaignName;
+    if (!camp || !scene.scene_id) return;
+    const confirmed = await this.confirmDialog.ask({
+      title: `Delete "${scene.title}"?`,
+      message: 'This Story Scene and any unused uploaded handout images inside it will be permanently deleted.',
+      confirmLabel: 'Delete scene',
+      tone: 'danger',
+    });
+    if (!confirmed || this.campaignName !== camp) return;
+
+    this.storySceneService
+      .deleteScene(camp, scene.scene_id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          if (this.campaignName !== camp) return;
+          this.storyScenes = this.storyScenes.filter((s) => s.scene_id !== scene.scene_id);
+          this.uploadedStoryAssetResult = null;
+          if (this.selectedStorySceneId === scene.scene_id) {
+            this.selectedStorySceneId = this.storyScenes[0]?.scene_id ?? null;
+          }
+          this.rollToast.showMessage('🗑️ SCENE DELETED', `Deleted "${scene.title}".`);
+        },
+        error: (err) => {
+          if (this.campaignName !== camp) return;
+          this.handleAuthFailure(err);
+          this.rollToast.showMessage(
+            '❌ DELETE FAILED',
+            this.formatApiError(err, 'Could not delete scene.')
+          );
+        },
+      });
+  }
+
+  reorderStoryScene(event: StorySceneReorderEvent): void {
+    const camp = this.campaignName;
+    if (!camp) return;
+    const index = this.storyScenes.findIndex((s) => s.scene_id === event.sceneId);
+    const targetIdx = index + event.direction;
+    if (index < 0 || targetIdx < 0 || targetIdx >= this.storyScenes.length) return;
+
+    const sceneA = this.storyScenes[index];
+    const sceneB = this.storyScenes[targetIdx];
+    const orderA = sceneA.order;
+    const orderB = sceneB.order;
+
+    let updatedList: StoryScene[];
+    let changedScenes: StoryScene[];
+
+    if (typeof orderA === 'number' && typeof orderB === 'number' && orderA !== orderB) {
+      // Swap existing server order values directly so sparse post-deletion orders stay monotonic
+      const nextA: StoryScene = { ...sceneA, order: orderB };
+      const nextB: StoryScene = { ...sceneB, order: orderA };
+      updatedList = [...this.storyScenes];
+      updatedList[index] = nextB;
+      updatedList[targetIdx] = nextA;
+      changedScenes = [nextA, nextB];
+    } else {
+      // Normalize colliding/missing orders across all affected scenes
+      const reordered = [...this.storyScenes];
+      const [moved] = reordered.splice(index, 1);
+      reordered.splice(targetIdx, 0, moved);
+      updatedList = reordered.map((s, idx) => ({ ...s, order: idx }));
+      changedScenes = updatedList.filter((s, idx) => reordered[idx].order !== s.order);
+    }
+
+    this.storyScenes = updatedList;
+    if (!changedScenes.length) return;
+
+    this.savingStoryScene = true;
+    forkJoin(
+      changedScenes.map((s) =>
+        this.storySceneService.updateScene(camp, s.scene_id!, { order: s.order })
+      )
+    )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          if (this.campaignName === camp) {
+            this.savingStoryScene = false;
+          }
+        },
+        error: () => {
+          if (this.campaignName === camp) {
+            this.savingStoryScene = false;
+            this.ensureStoryScenesLoaded(true);
+          }
+        },
+      });
+  }
+
+  uploadStoryCardImage(event: StoryCardImageUploadEvent): void {
+    const camp = this.campaignName;
+    if (!camp) return;
+    this.uploadingStoryRequestId = event.requestId;
+    this.assetService
+      .uploadAsset(camp, event.file, 'scene')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          if (this.campaignName !== camp) return;
+          if (this.uploadingStoryRequestId === event.requestId) {
+            this.uploadingStoryRequestId = null;
+          }
+          this.uploadedStoryAssetResult = {
+            requestId: event.requestId,
+            url: res.url,
+          };
+          this.rollToast.showMessage('🖼️ IMAGE UPLOADED', 'Image ready — press Save or Save & Show.');
+        },
+        error: (err) => {
+          if (this.campaignName !== camp) return;
+          if (this.uploadingStoryRequestId === event.requestId) {
+            this.uploadingStoryRequestId = null;
+          }
+          this.handleAuthFailure(err);
+          this.rollToast.showMessage(
+            '⚠️ UPLOAD FAILED',
+            this.formatApiError(err, 'Could not upload handout image.')
+          );
+        },
+      });
+  }
+
+  castStoryCard(event: StoryCardCastEvent): void {
+    const camp = this.campaignName;
+    const sceneId = event.scene.scene_id;
+    const cardId = event.card.card_id;
+    if (!camp || !sceneId || !cardId) return;
+
+    this.castingStoryCardId = cardId;
+    if (event.dirty) {
+      this.savingStoryScene = true;
+    }
+    const persistFirst$ = event.dirty
+      ? this.storySceneService
+          .updateScene(camp, sceneId, {
+            title: event.scene.title,
+            dm_notes: event.scene.dm_notes,
+            cards: event.scene.cards,
+          })
+          .pipe(
+            tap((updated) => {
+              if (this.campaignName !== camp) return;
+              this.savingStoryScene = false;
+              this.storyScenes = this.storyScenes.map((s) =>
+                s.scene_id === updated.scene_id ? updated : s
+              );
+              this.uploadedStoryAssetResult = null;
+              this.storySaveSuccessSeq += 1;
+            }),
+            switchMap(() => {
+              if (this.campaignName !== camp) return EMPTY;
+              return this.storySceneService.castCard(camp, sceneId, {
+                card_id: cardId,
+                target_mode: event.targetMode,
+                target_char_ids: event.targetCharIds,
+              });
+            })
+          )
+      : this.storySceneService.castCard(camp, sceneId, {
+          card_id: cardId,
+          target_mode: event.targetMode,
+          target_char_ids: event.targetCharIds,
+        });
+
+    persistFirst$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (res) => {
+        if (this.campaignName !== camp) return;
+        this.savingStoryScene = false;
+        this.castingStoryCardId = null;
+        this.lastCastCardId = cardId;
+        this.rollToast.showMessage('🎬 POP-UP CAST', res?.message || `Showed "${event.card.title}" to players.`);
+      },
+      error: (err) => {
+        if (this.campaignName !== camp) return;
+        this.savingStoryScene = false;
+        this.castingStoryCardId = null;
+        this.handleAuthFailure(err);
+        this.rollToast.showMessage(
+          '⚠️ CAST FAILED',
+          this.formatApiError(err, 'Could not push handout pop-up.')
+        );
+      },
+    });
+  }
+
+  dismissStoryPopup(event: StoryDismissEvent): void {
+    const camp = this.campaignName;
+    if (!camp) return;
+    this.dismissingStoryPopup = true;
+    this.storySceneService
+      .dismissPopup(camp, {
+        target_mode: event.targetMode,
+        target_char_ids: event.targetCharIds,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          if (this.campaignName !== camp) return;
+          this.dismissingStoryPopup = false;
+          this.lastCastCardId = null;
+          this.rollToast.showMessage('🚫 POP-UP CLEARED', 'Dismissed player scene pop-ups.');
+        },
+        error: (err) => {
+          if (this.campaignName !== camp) return;
+          this.dismissingStoryPopup = false;
+          this.handleAuthFailure(err);
+          this.rollToast.showMessage(
+            '⚠️ DISMISS FAILED',
+            this.formatApiError(err, 'Could not dismiss player pop-ups.')
+          );
+        },
+      });
   }
 }

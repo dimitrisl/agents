@@ -13,6 +13,7 @@ Phyrexian Forge uses **MongoDB Atlas** accessed asynchronously via **Motor** (`A
 | `oauth_handoffs` | `jti`, `expires_at` | Single-use Discord OAuth2 `#code` handoff tracking with TTL expiration. |
 | `characters` | `char_id`, `owner_id`, `char_name`, `char_class`, `char_level`, `stats`, `version`, `active_campaign` | Full character sheet documents. |
 | `campaigns` | `campaign_name`, `owner_id`, `edition`, `invite_code`, `party`, `vtt_state` | Campaign metadata, party roster, and VTT grid state. |
+| `campaign_story_scenes` | `scene_id`, `campaign_name`, `title`, `dm_notes`, `order`, `cards` | DM-only prepared narrative Story Scenes and ordered Visual Handout cards (`#288`). |
 | `campaign_members` | `campaign_id`, `user_id`, `role` (`dm`\|`player`), `character_id`, `character_ids`, `joined_at` | Campaign membership, permissions, and multi-character enrollment per user. |
 | `campaign_entities` | `campaign_name`, `name`, `type`, `content`, `tags`, `created_at` | NPCs, locations, factions, and lore cards. |
 | `session_logs` | `campaign_name`, `session_number`, `title`, `summary`, `real_world_date` | Chronological session recaps and journal. |
@@ -57,9 +58,11 @@ INDEX_DEFINITIONS = [
     # Campaign members: compound unique index to prevent duplicate joins
     ("campaign_members", [("campaign_id", 1), ("user_id", 1)], {"unique": True, "name": "uniq_campaign_members_campaign_user"}),
 
-    # Entities and logs
+    # Entities, logs and DM story scenes
     ("campaign_entities", [("campaign_name", 1)], {"name": "idx_campaign_entities_campaign_name"}),
     ("session_logs", [("campaign_name", 1), ("session_number", -1)], {"name": "idx_session_logs_campaign_session"}),
+    ("campaign_story_scenes", [("scene_id", 1)], {"unique": True, "name": "uniq_campaign_story_scenes_scene_id"}),
+    ("campaign_story_scenes", [("campaign_name", 1), ("order", 1)], {"name": "idx_campaign_story_scenes_campaign_order"}),
 
     # Bestiary: custom monsters collection
     ("custom_monsters", [("id", 1)], {"unique": True, "name": "uniq_custom_monsters_id"}),

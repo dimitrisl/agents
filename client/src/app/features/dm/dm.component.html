@@ -82,8 +82,11 @@
             </div>
           </div>
 
-            <div class="border-t border-hairline p-4">
+            <div class="flex flex-col gap-2 border-t border-hairline p-4">
               <button forgeButton variant="primary" class="w-full" (click)="openVTT()">🗺️ Open VTT Grid</button>
+              <button forgeButton variant="secondary" tone="accent" class="w-full" data-testid="open-scene-caster-btn" (click)="openSceneCasterModal()">
+                🎬 Cast Scene Pop-up
+              </button>
             </div>
 
           <div class="border-t border-hairline">
@@ -362,6 +365,26 @@
             (saveNotes)="saveCampaignNotes()"
           ></app-notes-panel>
 
+          @if (dmMode === 'live' && activeTab === 'scenes') {
+            <app-story-scenes-panel
+              class="block min-w-0"
+              role="tabpanel"
+              aria-labelledby="dm-tabs-live-tab-scenes"
+              [compact]="true"
+              [scenes]="storyScenes"
+              [partyMembers]="partyMembers"
+              [entities]="storyEntities"
+              [(selectedSceneId)]="selectedStorySceneId"
+              [loading]="loadingStoryScenes"
+              [busyCardId]="castingStoryCardId"
+              [dismissing]="dismissingStoryPopup"
+              [lastCastCardId]="lastCastCardId"
+              (castCard)="castStoryCard($event)"
+              (dismissPopup)="dismissStoryPopup($event)"
+              (openPrepEditor)="openStoryPrepFromCaster()"
+            ></app-story-scenes-panel>
+          }
+
           <!-- DM Preparation Tab Panels -->
           <app-homebrew-panel
             *ngIf="dmMode === 'prep' && activeTab === 'homebrew'"
@@ -416,6 +439,34 @@
             aria-labelledby="dm-tabs-prep-tab-prep"
             [campaignName]="campaignName"
           ></app-prep-panel>
+
+          @if (dmMode === 'prep' && activeTab === 'scenes') {
+            <app-story-scenes-panel
+              class="block min-w-0"
+              role="tabpanel"
+              aria-labelledby="dm-tabs-prep-tab-scenes"
+              [compact]="false"
+              [scenes]="storyScenes"
+              [partyMembers]="partyMembers"
+              [entities]="storyEntities"
+              [(selectedSceneId)]="selectedStorySceneId"
+              [loading]="loadingStoryScenes"
+              [saving]="savingStoryScene"
+              [uploadingRequestId]="uploadingStoryRequestId"
+              [busyCardId]="castingStoryCardId"
+              [dismissing]="dismissingStoryPopup"
+              [lastCastCardId]="lastCastCardId"
+              [uploadedAssetResult]="uploadedStoryAssetResult"
+              [saveSuccessSeq]="storySaveSuccessSeq"
+              (createScene)="createStoryScene($event)"
+              (saveScene)="saveStoryScene($event)"
+              (deleteScene)="deleteStoryScene($event)"
+              (reorderScene)="reorderStoryScene($event)"
+              (uploadCardImage)="uploadStoryCardImage($event)"
+              (castCard)="castStoryCard($event)"
+              (dismissPopup)="dismissStoryPopup($event)"
+            ></app-story-scenes-panel>
+          }
         </div>
       </forge-card>
     </section>
@@ -514,4 +565,21 @@
     (closed)="showModifiersModal = false"
     (saveModifiers)="saveDmModifiers($event)"
   ></app-dm-modifiers-modal>
+
+  <app-scene-caster-modal
+    [open]="showSceneCasterModal"
+    (openChange)="showSceneCasterModal = $event"
+    (closed)="showSceneCasterModal = false"
+    [scenes]="storyScenes"
+    [partyMembers]="partyMembers"
+    [entities]="storyEntities"
+    [(selectedSceneId)]="selectedStorySceneId"
+    [loading]="loadingStoryScenes"
+    [busyCardId]="castingStoryCardId"
+    [dismissing]="dismissingStoryPopup"
+    [lastCastCardId]="lastCastCardId"
+    (castCard)="castStoryCard($event)"
+    (dismissPopup)="dismissStoryPopup($event)"
+    (openPrepEditor)="openStoryPrepFromCaster()"
+  ></app-scene-caster-modal>
 </forge-page>

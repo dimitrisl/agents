@@ -2073,4 +2073,10 @@
       (warningsAcknowledged)="closeImportModal()"
     />
   </forge-modal>
+
+  <!-- Ephemeral Story Scene Handout Pop-up (#288) -->
+  <app-scene-popup-modal
+    [popup]="activeScenePopup()"
+    (dismissed)="activeScenePopup.set(null)"
+  ></app-scene-popup-modal>
 </forge-page>

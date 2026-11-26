@@ -1144,8 +1144,96 @@ class CampaignAssetSchema(BaseModel):
     filename: str
     campaign_name: str
     uploaded_by_user_id: str
-    kind: str = "map"  # "map" | "token"
+    kind: str = "map"  # "map" | "token" | "scene"
     created_at: datetime
+
+
+# ==========================================
+# DM Story Scenes & Visual Handout Pop-ups (#288)
+# ==========================================
+
+
+def _validate_story_image_url(value: Optional[str]) -> str:
+    from backend.services.story_scene_service import sanitize_story_image_url
+
+    return sanitize_story_image_url(value)
+
+
+class StorySceneCardSchema(BaseModel):
+    card_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str = Field(..., min_length=1, max_length=160)
+    image_url: str = Field(default="", max_length=2048)
+    caption: str = Field(default="", max_length=1200)
+    dm_notes: str = Field(default="", max_length=4000)
+    entity_id: Optional[str] = Field(default=None, max_length=120)
+    order: int = 0
+
+    @field_validator("title")
+    @classmethod
+    def strip_card_title(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Card title cannot be blank.")
+        return cleaned
+
+    @field_validator("image_url")
+    @classmethod
+    def validate_card_image_url(cls, v: Optional[str]) -> str:
+        return _validate_story_image_url(v)
+
+
+class StorySceneSchema(BaseModel):
+    scene_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    campaign_name: str
+    title: str = Field(..., min_length=1, max_length=160)
+    dm_notes: str = Field(default="", max_length=4000)
+    order: int = 0
+    cards: List[StorySceneCardSchema] = Field(default_factory=list, max_length=50)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class StorySceneCreateRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=160)
+    dm_notes: str = Field(default="", max_length=4000)
+    order: Optional[int] = None
+    cards: List[StorySceneCardSchema] = Field(default_factory=list, max_length=50)
+
+    @field_validator("title")
+    @classmethod
+    def strip_scene_title(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Scene title cannot be blank.")
+        return cleaned
+
+
+class StorySceneUpdateRequest(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=160)
+    dm_notes: Optional[str] = Field(default=None, max_length=4000)
+    order: Optional[int] = None
+    cards: Optional[List[StorySceneCardSchema]] = Field(default=None, max_length=50)
+
+    @field_validator("title")
+    @classmethod
+    def strip_optional_scene_title(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Scene title cannot be blank.")
+        return cleaned
+
+
+class StorySceneCastRequest(BaseModel):
+    card_id: str = Field(..., min_length=1, max_length=120)
+    target_mode: Literal["all", "selected"] = "all"
+    target_char_ids: List[str] = Field(default_factory=list, max_length=50)
+
+
+class StorySceneDismissRequest(BaseModel):
+    target_mode: Literal["all", "selected"] = "all"
+    target_char_ids: List[str] = Field(default_factory=list, max_length=50)
 
 
 class VTTStateSchema(BaseModel):

@@ -153,6 +153,8 @@ import { ConditionsModalComponent } from './modals/conditions-modal/conditions-m
 import { PlayerHomebrewModalComponent } from './modals/player-homebrew-modal/player-homebrew-modal.component';
 import { VttGridComponent } from '../campaigns/vtt-grid/vtt-grid.component';
 import { QuickDiceDrawerComponent } from './quick-dice-drawer/quick-dice-drawer.component';
+import { ScenePopupModalComponent } from './modals/scene-popup-modal/scene-popup-modal.component';
+import type { ScenePopupDismissPayload, ScenePopupPayload } from '../../core/models/story-scene.model';
 import { environment } from '../../../environments/environment';
 
 // The panels and modals under `features/player/` still import this from here.
@@ -212,6 +214,7 @@ interface RollTarget {
     PlayerHomebrewModalComponent,
     VttGridComponent,
     QuickDiceDrawerComponent,
+    ScenePopupModalComponent,
   ],
   templateUrl: './player.component.html',
   styleUrl: './player.component.css',
@@ -325,6 +328,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   whisperHistory: Whisper[] = [];
   rollRequestHistory: RollRequest[] = [];
   rollLogHistory: CampaignRollLog[] = [];
+  activeScenePopup = signal<ScenePopupPayload | null>(null);
   /** Whispers, roll requests, and party sheet rolls in one chronological thread. */
   inboxFeed: InboxEntry[] = [];
   unreadMessages = 0;
@@ -621,6 +625,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.showWhisperInbox.set(false);
         this.loadedCampaignMessageKey = null;
         this.encounterState = null;
+        this.activeScenePopup.set(null);
         this.clearRollPrompts();
         this.rebuildInboxFeed();
         this.showMobileHpSheet.set(false);
@@ -669,6 +674,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         this.showWhisperInbox.set(false);
         this.loadedCampaignMessageKey = null;
         this.encounterState = null;
+        this.activeScenePopup.set(null);
         this.clearRollPrompts();
         this.rebuildInboxFeed();
       }
@@ -848,6 +854,44 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         const rollLog = msg['payload'] as CampaignRollLog | undefined;
         if (!rollLog) return;
         this.addRollLog(rollLog);
+      } else if (msg.type === 'scene_popup') {
+        if (!char.active_campaign) return;
+        const popup = msg['payload'] as ScenePopupPayload | undefined;
+        if (!popup || !popup.image_url) return;
+        const isTargetedToOthers =
+          popup.target_mode === 'selected' &&
+          Array.isArray(popup.target_char_ids) &&
+          (!char.char_id || !popup.target_char_ids.includes(char.char_id));
+        if (isTargetedToOthers) {
+          const targetSibling = popup.target_char_ids
+            .map((cid) => this.findOtherOwnedCampaignCharacter(char.active_campaign!, char, cid))
+            .find((sibling) => !!sibling);
+          if (targetSibling) {
+            this.rollToast.showMessage(
+              `🎭 SCENE REVEAL → ${targetSibling.char_name}`,
+              `Private reveal "${popup.title}" was sent to ${targetSibling.char_name}. Switch sheets and ask the DM to re-cast if needed.`
+            );
+          }
+          return;
+        }
+        this.activeScenePopup.set(popup);
+        if (this.isCompanionMode()) {
+          this.haptics.lightTap();
+        }
+        this.cdr.markForCheck();
+      } else if (msg.type === 'scene_popup_dismiss') {
+        if (!char.active_campaign) return;
+        const payload = msg['payload'] as ScenePopupDismissPayload | undefined;
+        if (!this.activeScenePopup()) return;
+        const appliesToMe =
+          !payload ||
+          payload.target_mode !== 'selected' ||
+          !Array.isArray(payload.target_char_ids) ||
+          (!!char.char_id && payload.target_char_ids.includes(char.char_id));
+        if (appliesToMe) {
+          this.activeScenePopup.set(null);
+          this.cdr.markForCheck();
+        }
       }
     });
   }
