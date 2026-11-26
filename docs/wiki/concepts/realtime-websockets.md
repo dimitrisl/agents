@@ -66,3 +66,8 @@ Polling HTTP endpoints for live campaign state is strictly prohibited. All live 
 9. **Session Revocation & Forced Password Rotation Guards:**
    - WebSocket handshakes enforce JWT `purpose == "access"`, `token_version` (`tv >= user.token_version`), and close with `1008` when `must_change_password` is `True`.
    - Password changes ([`auth_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/auth_router.py)) and admin resets ([`admin_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/admin_router.py)) invoke `manager.disconnect_user(...)` to close all active campaign WebSockets (`1008`) for that user immediately.
+
+10. **DM Story Scenes & Ephemeral Player Pop-ups (`scene_popup` / `scene_popup_dismiss`, `#288`):**
+    - [`story_scenes_router.py`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/server/routers/story_scenes_router.py) enforces `require_campaign_role("dm")` on all scene reads/writes (`campaign_story_scenes`), guaranteeing unrevealed handouts never leak to players before broadcast.
+    - Casting a handout card (`POST /cast`) strips private `dm_notes` via [`build_scene_popup_payload`](file:///home/dimitrisl/Public/yet_another_dnd_project/agents/backend/services/story_scene_service.py) and broadcasts `type: "scene_popup"` either campaign-wide (`target_mode="all"`) or strictly to resolved `user_ids` + `characters` (`target_mode="selected"`).
+    - Casting `type: "scene_popup_dismiss"` (`POST /dismiss`) remotely clears active player lightboxes; reveals are strictly ephemeral client-side (no player handout archive or post-refresh persistence).

@@ -1,0 +1,54 @@
+<forge-modal
+  [open]="!!popup"
+  (openChange)="!$event && close()"
+  [title]="modalTitle"
+  maxWidth="780px"
+>
+  @if (popup; as activePopup) {
+    <div class="flex flex-col gap-4" data-testid="player-scene-popup">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        @if (activePopup.scene_title) {
+          <span class="text-micro font-semibold uppercase tracking-wide text-accent">
+            🎭 {{ activePopup.scene_title }}
+          </span>
+        }
+        @if (activePopup.target_mode === 'selected') {
+          <forge-badge tone="accent" size="sm">🎯 Private Reveal</forge-badge>
+        } @else {
+          <forge-badge tone="muted" size="sm">📢 Party Reveal</forge-badge>
+        }
+      </div>
+
+      <div class="overflow-hidden rounded-xl bg-deep p-2">
+        <app-story-image
+          [src]="activePopup.image_url"
+          [alt]="activePopup.title"
+          imgClass="mx-auto max-h-[52vh] w-full object-contain rounded-lg"
+          testId="player-scene-popup-image"
+        />
+      </div>
+
+      @if (activePopup.caption) {
+        <div
+          class="rounded-xl bg-tile px-4 py-3 text-body leading-relaxed text-ink whitespace-pre-wrap"
+          data-testid="player-scene-popup-caption"
+        >
+          {{ activePopup.caption }}
+        </div>
+      }
+
+      <div class="flex justify-end pt-1">
+        <button
+          forgeButton
+          variant="secondary"
+          type="button"
+          class="w-full sm:w-auto"
+          data-testid="player-scene-popup-close"
+          (click)="close()"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  }
+</forge-modal>

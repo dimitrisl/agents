@@ -22,6 +22,7 @@ The Angular 19 frontend uses a standalone component architecture powered by **An
 | [`spell-rules.service.ts`](../../../client/src/app/core/services/spell-rules.service.ts) & [`class-combat.service.ts`](../../../client/src/app/core/services/class-combat.service.ts) | Client-side lookups for spell scaling, concentration tracking, and class-specific combat riders (e.g. Sneak Attack, Rage, Divine Smite, Planar Warrior). |
 | [`bestiary.service.ts`](../../../client/src/app/core/services/bestiary.service.ts) | Queries `/api/v1/bestiary` for official SRD and custom monsters with source filtering (`include_official`, `include_mine`, `include_community` defaulting to `false`), cloning, creation, visibility toggling, and deletion. |
 | [`character-import.service.ts`](../../../client/src/app/core/services/character-import.service.ts) | Handles PDF character sheet upload (`/characters/import-pdf`) and JSON character import/export flows. |
+| [`story-scene.service.ts`](../../../client/src/app/core/services/story-scene.service.ts) & [`asset.service.ts`](../../../client/src/app/core/services/asset.service.ts) | DM Story Scenes REST + cast/dismiss client (`StorySceneService`) and campaign upload/authenticated Blob resolver (`AssetService.resolveDisplayImage` with `objectURL` lifecycle safety). |
 
 ### 2. Pure Client Rules Engine (`core/rules/`)
 Pure, deterministic TypeScript functions tested in isolation that mirror `backend/services/stats_service.py`:
@@ -41,12 +42,13 @@ Pure, deterministic TypeScript functions tested in isolation that mirror `backen
 
 ## 🐉 DM Workspace & Virtual Tabletop (`client/src/app/features/dm/`, `campaigns/vtt-grid/`)
 
-- **Entry Component:** [`dm.component.ts`](../../../client/src/app/features/dm/dm.component.ts) — Organized into two top-level Master Modes (`⚔️ Live DM` for `initiative`, `vtt`, `party`, and `notes`; `🛠️ DM Preparation` for `homebrew` Bestiary & Homebrew, `generators`, `prep`, and `entities`) with a pinned Active Combat Strip across non-initiative Live DM tabs.
+- **Entry Component:** [`dm.component.ts`](../../../client/src/app/features/dm/dm.component.ts) — Organized into two top-level Master Modes (`⚔️ Live DM` for `initiative`, `vtt`, `scenes` Scene Caster, `party`, and `notes`; `🛠️ DM Preparation` for `homebrew` Bestiary & Homebrew, `generators`, `prep`, `entities`, and `scenes` Story Scenes) with a pinned Active Combat Strip across non-initiative Live DM tabs and a 1-click `🎬 Cast Scene Pop-up` launcher on the Session Board sidebar.
 - **Panels (`features/dm/panels/`):**
   - [`party-panel`](../../../client/src/app/features/dm/panels/party-panel): Live party HP, AC, passive scores, conditions, online presence, party-wide & per-member DM controls (`🔓 SR`/`LR`/`LU` 1-shot unlocks, `🏜️ Suppress Magic (Athas)`, Exhaustion stepper + `Waive Exh`, `✨ Insp`, `💀 DEAD (EXH 6)` indicator, and DM Check rolls using 2014 Disadvantage & `dm_modifiers`).
   - [`dm-modifiers-modal`](../../../client/src/app/features/dm/modals/dm-modifiers-modal): Per-hero modal controlling Exhaustion `0–6`, `Waive Exhaustion`, `Suppress Magic Items`, 10 signed numeric modifiers (`+/-`), and DM notes.
   - [`initiative-panel`](../../../client/src/app/features/dm/panels/initiative-panel): Turn tracker with automatic DEX tiebreaking, `🎲 Request Initiative` party prompt shortcut (which auto-seeds missing party members into combatants before incoming `roll_result` frames arrive), monster HP adjustments, condition toggles, and Unified Bestiary Quick-Add search with source filter chips (`Official`, `Mine`, `3rd-Party`).
   - [`entities-panel`](../../../client/src/app/features/dm/panels/entities-panel) & [`prep-panel`](../../../client/src/app/features/dm/panels/prep-panel): NPCs, villains, locations, monster statblocks, and AI session transcription/prep tools.
+  - [`story-scenes-panel`](../../../client/src/app/features/dm/panels/story-scenes-panel) & [`scene-caster-modal`](../../../client/src/app/features/dm/modals/scene-caster-modal): Dual-mode (`Scene Builder` tile-grid + focused Card/Scene Editor dialogs vs read-only `Live Scene Caster`) component for preparing multi-card visual scenes (upload/drag-drop/clipboard paste with `requestId`-matched uploads, URL, World Entity portrait picker) and broadcasting ephemeral pop-ups (`Everyone` or `Choose players` + `Close pop-ups`).
   - [`generators-panel`](../../../client/src/app/features/dm/panels/generators-panel) & [`homebrew-panel`](../../../client/src/app/features/dm/panels/homebrew-panel): AI encounter balancer (scaled to actual party levels), NPC & Riddle/Trap generators, Unified Bestiary explorer (with SRD cloning and private/public visibility toggles), and campaign homebrew forge.
 - **Modals (`features/dm/modals/`):**
   - [`statblock-modal`](../../../client/src/app/features/dm/modals/statblock-modal): Renders structured monster statblocks (ability scores with modifiers, traits, and actions) with 1-click `[ 🎲 +X to Hit ]` and `[ 💥 XdY+Z Damage ]` rolls wired through `DiceService` and `RollToastService`.
@@ -77,7 +79,7 @@ Pure, deterministic TypeScript functions tested in isolation that mirror `backen
 ## 🎨 Shared Design System (`client/src/app/shared/`)
 
 - **Phyrexian UI Primitives (`shared/ui/`):** Reusable standalone components (`forge-button`, `forge-card`, `forge-modal` with optional `[sheetOnMobile]="true"` bottom-sheet drawer presentation below `1024px`, `forge-tabs`, `forge-switcher`, `forge-icon`, `forge-spinner`, `forge-skeleton`, `forge-markdown`, `forge-confirm`, `forge-stat-box`, `forge-badge`) styled via global CSS variables (`[data-edition="2014"|"2024"]`).
-- **Interactive Shared Components (`shared/components/`):** `dice-roller`, `dice-3d`, `roll-toast`, `command-palette`, `navbar`, and `character-import-panel`.
+- **Interactive Shared Components (`shared/components/`):** `dice-roller`, `dice-3d`, `roll-toast`, `command-palette`, `navbar`, `character-import-panel`, and `story-image` (protected campaign asset Blob + external URL image loader).
 
 ---
 

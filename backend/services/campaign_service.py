@@ -99,6 +99,7 @@ async def delete_campaign_cascade(
 
     await _maybe_await(db["campaign_assets"].delete_many({"campaign_name": campaign_name}))
     await _maybe_await(db["campaign_scenes"].delete_many({"campaign_name": campaign_name}))
+    await _maybe_await(db["campaign_story_scenes"].delete_many({"campaign_name": campaign_name}))
     await _maybe_await(db["campaign_scene_history"].delete_many({"campaign_name": campaign_name}))
 
     # 5. Delete campaign document

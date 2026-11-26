@@ -29,6 +29,11 @@ async def upload_asset(
     campaign_member: dict = Depends(require_campaign_member()),
 ) -> Dict[str, Any]:
     """Upload an asset (image) for a campaign."""
+    if kind == "scene" and campaign_member.get("role") != "dm":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the DM can upload story scene assets.",
+        )
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -49,7 +54,7 @@ async def upload_asset(
         "filename": unique_filename,
         "campaign_name": name,
         "uploaded_by_user_id": campaign_member.get("user_id", ""),
-        "kind": kind if kind in ("map", "token") else "map",
+        "kind": kind if kind in ("map", "token", "scene") else "map",
         "created_at": datetime.now(timezone.utc),
     }
     await db["campaign_assets"].insert_one(asset_doc)
@@ -70,9 +75,17 @@ async def list_assets(
     campaign_member: dict = Depends(require_campaign_member()),
 ) -> List[Dict[str, Any]]:
     """List uploaded assets for a campaign."""
+    is_dm = campaign_member.get("role") == "dm"
+    if kind == "scene" and not is_dm:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the DM can list story scene assets.",
+        )
     query: Dict[str, Any] = {"campaign_name": name}
     if kind:
         query["kind"] = kind
+    elif not is_dm:
+        query["kind"] = {"$ne": "scene"}
 
     cursor = db["campaign_assets"].find(query).sort("created_at", -1)
     encoded_name = quote(name, safe="")

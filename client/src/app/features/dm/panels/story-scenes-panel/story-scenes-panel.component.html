@@ -1,0 +1,582 @@
+<div class="flex min-w-0 flex-col gap-4 p-4">
+  <!-- 1. Who sees the pop-up -->
+  <section class="flex flex-col gap-3 rounded-xl bg-panel p-3" aria-label="Who sees the pop-up">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex min-w-0 flex-wrap items-center gap-3">
+        <span class="text-micro font-semibold uppercase text-muted">Show to</span>
+        <div
+          class="grid grid-cols-2 rounded-full border border-hairline bg-deep p-1"
+          role="radiogroup"
+          aria-label="Pop-up audience"
+        >
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="targetMode === 'all'"
+            class="min-h-8 rounded-full px-3 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [ngClass]="targetMode === 'all' ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+            data-testid="scene-target-all"
+            (click)="setTargetMode('all')"
+          >
+            📢 Everyone
+          </button>
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="targetMode === 'selected'"
+            class="min-h-8 rounded-full px-3 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [ngClass]="targetMode === 'selected' ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+            data-testid="scene-target-selected"
+            (click)="setTargetMode('selected')"
+          >
+            🎯 Choose players
+          </button>
+        </div>
+      </div>
+
+      <div class="flex shrink-0 items-center gap-2">
+        @if (compact) {
+          <button forgeButton variant="ghost" size="sm" type="button" (click)="openPrepEditor.emit()">
+            ✏️ Edit scenes
+          </button>
+        }
+        <button
+          forgeButton
+          variant="secondary"
+          tone="danger"
+          size="sm"
+          type="button"
+          [loading]="dismissing"
+          [disabled]="targetMode === 'selected' && selectedCharIds.length === 0"
+          title="Close the pop-up on players' screens"
+          data-testid="scene-dismiss-btn"
+          (click)="onDismissPopup()"
+        >
+          Close pop-ups
+        </button>
+      </div>
+    </div>
+
+    @if (targetMode === 'selected') {
+      <div class="flex flex-wrap items-center gap-2">
+        @if (targetableMembers.length === 0) {
+          <span class="text-label text-muted">No player heroes in this campaign yet.</span>
+        } @else {
+          @for (member of targetableMembers; track member.char_id) {
+            <button
+              type="button"
+              role="switch"
+              [attr.aria-checked]="isCharSelected(member.char_id)"
+              [attr.data-testid]="'scene-target-char-' + member.char_id"
+              class="inline-flex min-h-8 items-center gap-2 rounded-full px-3 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+              [ngClass]="
+                isCharSelected(member.char_id)
+                  ? 'bg-accent/15 font-semibold text-ink ring-1 ring-inset ring-accent'
+                  : 'bg-tile text-muted hover:text-ink'
+              "
+              (click)="toggleTargetChar(member.char_id!)"
+            >
+              <span aria-hidden="true">{{ isCharSelected(member.char_id) ? '✓' : '○' }}</span>
+              <span>{{ member.name }}</span>
+            </button>
+          }
+        }
+      </div>
+    }
+  </section>
+
+  @if (loading) {
+    <div class="flex min-h-40 items-center justify-center rounded-xl bg-panel">
+      <forge-spinner size="md" tone="accent" label="Loading story scenes" />
+    </div>
+  } @else if (compact) {
+    <!-- 2a. LIVE CASTER (read-only): pick scene, press Show -->
+    @if (scenes.length === 0) {
+      <forge-empty-state
+        icon="🎭"
+        title="No scenes prepared yet"
+        description="Build scenes with handout images in DM Preparation → Story Scenes, then show them here."
+      >
+        <button forgeButton variant="secondary" tone="accent" type="button" (click)="openPrepEditor.emit()">
+          🎭 Build a scene
+        </button>
+      </forge-empty-state>
+    } @else {
+      <div class="flex flex-wrap gap-2" aria-label="Prepared scenes">
+        @for (scene of scenes; track scene.scene_id) {
+          <button
+            type="button"
+            [attr.aria-pressed]="isSceneActive(scene)"
+            class="min-h-9 rounded-lg px-3 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [ngClass]="isSceneActive(scene) ? 'bg-accent/15 font-semibold text-ink ring-1 ring-inset ring-accent' : 'bg-panel text-muted hover:text-ink'"
+            (click)="selectScene(scene)"
+          >
+            {{ scene.title }} <span class="text-micro text-muted">({{ scene.cards.length }})</span>
+          </button>
+        }
+      </div>
+
+      @if (activeScene; as scene) {
+        @if (scene.dm_notes) {
+          <p class="rounded-xl bg-tile px-3 py-2 text-label text-muted">
+            <span class="text-micro font-semibold uppercase text-accent">DM note · </span>{{ scene.dm_notes }}
+          </p>
+        }
+        @if (scene.cards.length === 0) {
+          <forge-empty-state icon="🖼️" title="This scene has no images" description="Add handout images in the scene builder.">
+            <button forgeButton variant="secondary" type="button" (click)="openPrepEditor.emit()">Add images</button>
+          </forge-empty-state>
+        } @else {
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @for (card of scene.cards; track card.card_id || $index) {
+              <article
+                class="flex flex-col overflow-hidden rounded-xl bg-tile"
+                [ngClass]="lastCastCardId && lastCastCardId === card.card_id ? 'ring-2 ring-accent' : ''"
+              >
+                <div class="h-36 bg-deep">
+                  <app-story-image [src]="card.image_url" [alt]="card.title" imgClass="h-36 w-full object-cover" />
+                </div>
+                <div class="flex flex-1 flex-col gap-2 p-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <h4 class="min-w-0 truncate font-display text-body font-bold text-ink">{{ card.title }}</h4>
+                    @if (lastCastCardId && lastCastCardId === card.card_id) {
+                      <forge-badge tone="accent" size="sm">On screen</forge-badge>
+                    }
+                  </div>
+                  <button
+                    forgeButton
+                    variant="secondary"
+                    tone="accent"
+                    size="sm"
+                    type="button"
+                    fullWidth
+                    class="mt-auto"
+                    [loading]="busyCardId === card.card_id"
+                    [disabled]="!canCastCard(card)"
+                    [attr.data-testid]="'cast-card-btn-' + $index"
+                    (click)="onCastCard(card)"
+                  >
+                    {{ targetMode === 'selected' ? '🎯 Show to chosen' : '📢 Show to everyone' }}
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      }
+    }
+  } @else {
+    <!-- 2b. SCENE BUILDER (prep) -->
+    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
+      <!-- Scene list -->
+      <aside class="flex flex-col gap-3 rounded-xl bg-panel p-3">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="font-display text-title text-ink">Scenes</h3>
+          <forge-badge tone="muted" size="sm">{{ scenes.length }}</forge-badge>
+        </div>
+
+        <form class="flex items-center gap-2" (ngSubmit)="submitNewScene()">
+          <label class="sr-only" for="new-story-scene-title">New scene name</label>
+          <input
+            forgeInput
+            dense
+            id="new-story-scene-title"
+            type="text"
+            name="newSceneTitle"
+            class="min-w-0 flex-1"
+            placeholder="New scene, e.g. Tavern"
+            [(ngModel)]="newSceneTitle"
+            data-testid="new-scene-title-input"
+          />
+          <button
+            forgeButton
+            variant="secondary"
+            tone="accent"
+            size="sm"
+            iconOnly
+            type="submit"
+            aria-label="Add scene"
+            [disabled]="!newSceneTitle.trim() || saving"
+            data-testid="create-scene-btn"
+          >
+            <forge-icon name="plus" size="sm" />
+          </button>
+        </form>
+
+        @if (scenes.length === 0) {
+          <p class="py-4 text-center text-label text-muted">Name your first scene above.</p>
+        } @else {
+          <ul class="flex flex-col gap-1">
+            @for (scene of scenes; track scene.scene_id; let idx = $index; let last = $last) {
+              <li
+                class="group flex items-center gap-1 rounded-lg transition-colors"
+                [ngClass]="isSceneActive(scene) ? 'bg-tile ring-1 ring-inset ring-accent' : 'hover:bg-tile'"
+              >
+                <button
+                  type="button"
+                  class="min-w-0 flex-1 rounded-lg px-2 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                  [attr.aria-pressed]="isSceneActive(scene)"
+                  (click)="selectScene(scene)"
+                >
+                  <span class="block truncate text-body font-semibold text-ink">{{ scene.title }}</span>
+                  <span class="block text-micro text-muted">{{ scene.cards.length }} image(s)</span>
+                </button>
+                <div class="flex shrink-0 items-center">
+                  <button
+                    forgeButton
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    type="button"
+                    [disabled]="idx === 0 || saving"
+                    [attr.aria-label]="'Move ' + scene.title + ' up'"
+                    (click)="reorderScene.emit({ sceneId: scene.scene_id!, direction: -1 })"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    forgeButton
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    type="button"
+                    [disabled]="last || saving"
+                    [attr.aria-label]="'Move ' + scene.title + ' down'"
+                    (click)="reorderScene.emit({ sceneId: scene.scene_id!, direction: 1 })"
+                  >
+                    ↓
+                  </button>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </aside>
+
+      <!-- Active scene -->
+      <div class="flex min-w-0 flex-col gap-4 rounded-xl bg-panel p-4">
+        @if (activeScene; as scene) {
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="truncate font-display text-title text-ink" data-testid="active-scene-title">{{ scene.title }}</h3>
+              <p class="mt-1 text-label text-muted">
+                {{ scene.dm_notes ? '🔒 ' + scene.dm_notes : 'Click an image to edit it, or press Show to put it on players\' screens.' }}
+              </p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <button forgeButton variant="ghost" size="sm" type="button" data-testid="edit-scene-btn" (click)="openSceneEditor()">
+                ✏️ Rename / notes
+              </button>
+              <button
+                forgeButton
+                variant="danger"
+                size="sm"
+                iconOnly
+                type="button"
+                [attr.aria-label]="'Delete scene ' + scene.title"
+                (click)="deleteScene.emit(scene)"
+              >
+                <forge-icon name="close" size="sm" />
+              </button>
+            </div>
+          </header>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+            @for (card of scene.cards; track card.card_id || $index; let cIdx = $index; let cLast = $last) {
+              <article
+                class="flex flex-col overflow-hidden rounded-xl bg-tile"
+                [ngClass]="lastCastCardId && lastCastCardId === card.card_id ? 'ring-2 ring-accent' : ''"
+                [attr.data-testid]="'scene-card-' + cIdx"
+              >
+                <button
+                  type="button"
+                  class="block h-40 bg-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                  [attr.aria-label]="'Edit ' + card.title"
+                  (click)="openEditCard(cIdx)"
+                >
+                  <app-story-image
+                    [src]="card.image_url"
+                    [alt]="card.title"
+                    emptyLabel="No image — click to add"
+                    imgClass="h-40 w-full object-cover"
+                  />
+                </button>
+                <div class="flex flex-1 flex-col gap-2 p-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <h4 class="min-w-0 truncate font-display text-body font-bold text-ink">{{ card.title }}</h4>
+                    @if (lastCastCardId && lastCastCardId === card.card_id) {
+                      <forge-badge tone="accent" size="sm">On screen</forge-badge>
+                    }
+                  </div>
+                  @if (card.caption) {
+                    <p class="line-clamp-2 text-label text-muted" [title]="card.caption">{{ card.caption }}</p>
+                  }
+                  <div class="mt-auto flex items-center gap-1 pt-1">
+                    <button
+                      forgeButton
+                      variant="secondary"
+                      tone="accent"
+                      size="sm"
+                      type="button"
+                      class="flex-1 whitespace-nowrap"
+                      [loading]="busyCardId === card.card_id"
+                      [disabled]="!canCastCard(card)"
+                      [title]="card.image_url ? 'Show this image to ' + audienceLabel : 'Add an image first'"
+                      [attr.data-testid]="'prep-cast-card-btn-' + cIdx"
+                      (click)="onCastCard(card)"
+                    >
+                      {{ targetMode === 'selected' ? '🎯 Show' : '📢 Show' }}
+                    </button>
+                    <button forgeButton variant="ghost" size="sm" type="button" class="whitespace-nowrap" (click)="openEditCard(cIdx)">Edit</button>
+                    <button
+                      forgeButton
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [disabled]="cIdx === 0 || saving"
+                      aria-label="Move image earlier"
+                      (click)="moveCard(cIdx, -1)"
+                    >
+                      ←
+                    </button>
+                    <button
+                      forgeButton
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      type="button"
+                      [disabled]="cLast || saving"
+                      aria-label="Move image later"
+                      (click)="moveCard(cIdx, 1)"
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              </article>
+            }
+
+            @if (canAddCard) {
+              <button
+                type="button"
+                class="flex min-h-56 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-hairline text-muted transition-colors hover:border-accent hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+                data-testid="add-scene-card-btn"
+                (click)="openNewCard()"
+              >
+                <span class="text-metric" aria-hidden="true">＋</span>
+                <span class="text-body font-semibold">Add image</span>
+                <span class="text-label">NPC, place, map, letter…</span>
+              </button>
+            }
+          </div>
+        } @else {
+          <forge-empty-state
+            icon="🎭"
+            title="Start with a scene"
+            description="Type a scene name on the left (e.g. “Tavern”), then add the images you want to show your players."
+          />
+        }
+      </div>
+    </div>
+  }
+</div>
+
+<!-- Card editor dialog -->
+<forge-modal
+  [open]="!!cardEditor"
+  (openChange)="!$event && closeCardEditor()"
+  [title]="cardEditor?.index === null ? '🖼️ New image' : '🖼️ Edit image'"
+  maxWidth="640px"
+>
+  @if (cardEditor; as editor) {
+    <div
+      class="flex flex-col gap-4"
+      data-testid="card-editor"
+      (paste)="onPasteImage($event)"
+      (dragover)="$event.preventDefault()"
+      (drop)="onDropImage($event)"
+    >
+      <div class="relative flex h-44 items-center justify-center overflow-hidden rounded-xl bg-deep">
+        @if (editorUploading) {
+          <forge-spinner size="md" tone="accent" label="Uploading image" />
+        } @else {
+          <app-story-image
+            [src]="editor.draft.image_url"
+            [alt]="editor.draft.title"
+            emptyLabel="Drop, paste (Ctrl+V) or choose an image"
+            imgClass="h-44 w-full object-contain"
+          />
+        }
+      </div>
+
+      <div class="grid grid-cols-3 rounded-full border border-hairline bg-panel p-1" role="radiogroup" aria-label="Image source">
+        @for (src of [['upload', '📁 Upload'], ['url', '🔗 Link'], ['vault', '🏰 From vault']]; track src[0]) {
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="imageSource === src[0]"
+            class="min-h-8 rounded-full px-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [ngClass]="imageSource === src[0] ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+            (click)="setImageSource($any(src[0]))"
+          >
+            {{ src[1] }}
+          </button>
+        }
+      </div>
+
+      @switch (imageSource) {
+        @case ('upload') {
+          <input #cardFileInput type="file" accept="image/*" class="hidden" (change)="onFilePicked($event)" />
+          <button
+            forgeButton
+            variant="secondary"
+            type="button"
+            fullWidth
+            [loading]="editorUploading"
+            data-testid="card-upload-btn"
+            (click)="cardFileInput.click()"
+          >
+            Choose image from computer
+          </button>
+          <p class="-mt-2 text-center text-label text-muted">…or drag it onto this window, or paste with Ctrl+V.</p>
+        }
+        @case ('url') {
+          <div>
+            <label for="card-editor-url" class="mb-1 block text-micro font-semibold uppercase text-muted">Image link</label>
+            <input
+              forgeInput
+              id="card-editor-url"
+              type="url"
+              placeholder="https://…"
+              [(ngModel)]="editor.draft.image_url"
+              (ngModelChange)="editor.draft.entity_id = null"
+            />
+          </div>
+        }
+        @case ('vault') {
+          <div>
+            <label for="card-editor-entity" class="mb-1 block text-micro font-semibold uppercase text-muted">World Entity picture</label>
+            @if (entitiesWithImages.length === 0) {
+              <p class="text-label text-muted">No World Entities with a picture yet.</p>
+            } @else {
+              <select
+                forgeSelect
+                id="card-editor-entity"
+                [ngModel]="editor.draft.entity_id ?? null"
+                (ngModelChange)="onEntitySelect($event)"
+              >
+                <option [ngValue]="null">— Pick an NPC, place or monster —</option>
+                @for (ent of entitiesWithImages; track ent.id || ent.name) {
+                  <option [ngValue]="ent.id || ent.name">{{ ent.name }} ({{ ent.type }})</option>
+                }
+              </select>
+            }
+          </div>
+        }
+      }
+
+      <div>
+        <label for="card-editor-title" class="mb-1 block text-micro font-semibold uppercase text-muted">Title players see</label>
+        <input
+          forgeInput
+          id="card-editor-title"
+          type="text"
+          maxlength="160"
+          placeholder="e.g. The Hooded Stranger"
+          [invalid]="editorTitleInvalid"
+          [(ngModel)]="editor.draft.title"
+          data-testid="card-editor-title"
+        />
+      </div>
+
+      <div>
+        <label for="card-editor-caption" class="mb-1 block text-micro font-semibold uppercase text-muted">Text under the image (optional)</label>
+        <textarea
+          forgeTextarea
+          id="card-editor-caption"
+          rows="2"
+          maxlength="1200"
+          placeholder="Read-aloud text shown to players…"
+          [(ngModel)]="editor.draft.caption"
+        ></textarea>
+      </div>
+
+      <details class="rounded-xl bg-tile px-3 py-2">
+        <summary class="rounded text-label font-semibold text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep">🔒 Private DM note (never shown)</summary>
+        <textarea
+          forgeTextarea
+          class="mt-2"
+          rows="2"
+          maxlength="4000"
+          aria-label="Private DM note"
+          placeholder="Secret cue, DC, what happens next…"
+          [(ngModel)]="editor.draft.dm_notes"
+        ></textarea>
+      </details>
+
+      <div class="flex flex-col-reverse gap-2 border-t border-hairline pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          @if (editor.index !== null) {
+            <button forgeButton variant="secondary" tone="danger" size="sm" type="button" [disabled]="saving || !!busyCardId" (click)="removeEditorCard()">
+              Remove image
+            </button>
+          }
+        </div>
+        <div class="flex flex-wrap justify-end gap-2">
+          <button forgeButton variant="ghost" type="button" (click)="closeCardEditor()">Cancel</button>
+          <button
+            forgeButton
+            variant="secondary"
+            type="button"
+            [loading]="saving && !busyCardId"
+            [disabled]="editorTitleInvalid || editorUploading || saving || !!busyCardId"
+            data-testid="card-editor-save"
+            (click)="saveCardEditor()"
+          >
+            Save
+          </button>
+          <button
+            forgeButton
+            variant="primary"
+            type="button"
+            [loading]="!!busyCardId && busyCardId === editor.draft.card_id"
+            [disabled]="editorTitleInvalid || editorUploading || saving || !!busyCardId || !canCastCard(editor.draft)"
+            [title]="'Save and show to ' + audienceLabel"
+            data-testid="card-editor-save-show"
+            (click)="saveAndShowCardEditor()"
+          >
+            Save &amp; Show
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</forge-modal>
+
+<!-- Scene rename / notes dialog -->
+<forge-modal
+  [open]="!!sceneEditor"
+  (openChange)="!$event && closeSceneEditor()"
+  title="✏️ Scene details"
+  maxWidth="520px"
+>
+  @if (sceneEditor; as se) {
+    <form class="flex flex-col gap-4" (ngSubmit)="saveSceneEditor()">
+      <div>
+        <label for="scene-editor-title" class="mb-1 block text-micro font-semibold uppercase text-muted">Scene name</label>
+        <input forgeInput id="scene-editor-title" name="title" maxlength="160" [invalid]="!se.title.trim()" [(ngModel)]="se.title" />
+      </div>
+      <div>
+        <label for="scene-editor-notes" class="mb-1 block text-micro font-semibold uppercase text-muted">🔒 Private DM notes</label>
+        <textarea forgeTextarea id="scene-editor-notes" name="notes" rows="3" maxlength="4000" [(ngModel)]="se.dm_notes"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 border-t border-hairline pt-4">
+        <button forgeButton variant="ghost" type="button" (click)="closeSceneEditor()">Cancel</button>
+        <button forgeButton variant="primary" type="submit" [loading]="saving" [disabled]="!se.title.trim()" data-testid="save-scene-btn">
+          Save
+        </button>
+      </div>
+    </form>
+  }
+</forge-modal>

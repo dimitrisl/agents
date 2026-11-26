@@ -32,6 +32,7 @@ from server.routers import (
     rules_router,
     session_router,
     settings_router,
+    story_scenes_router,
     websocket_router,
 )
 
@@ -102,6 +103,7 @@ app.include_router(rules_router.router, prefix=settings.API_V1_STR)
 app.include_router(session_router.router, prefix=settings.API_V1_STR)
 app.include_router(settings_router.router, prefix=settings.API_V1_STR)
 app.include_router(assets_router.router, prefix=settings.API_V1_STR)
+app.include_router(story_scenes_router.router, prefix=settings.API_V1_STR)
 app.include_router(websocket_router.router)
 
 # Expose effective mount prefix on included router objects for test suite introspection

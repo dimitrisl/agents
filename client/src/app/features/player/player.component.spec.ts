@@ -2593,4 +2593,89 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     http.match(() => true).forEach((r) => r.flush(charState.activeCharacter()));
     fixture.destroy();
   });
+
+  it('displays ephemeral story popup on WS event, replaces immediately, handles targeted vs dismiss, and clears on hero swap (#288)', () => {
+    const { comp, messages$, charState, http, fixture } = setupPlayer({
+      char_id: 'lyra-288',
+      char_name: 'Lyra',
+      active_campaign: 'Obsidian Vault',
+    });
+
+    // 1. Party-wide broadcast opens popup
+    messages$.next({
+      type: 'scene_popup',
+      payload: {
+        scene_id: 'sc-1',
+        scene_title: 'Entrance',
+        card_id: 'c-1',
+        title: 'Ancient Gate',
+        image_url: 'https://example.com/gate.png',
+        caption: 'Runes glow across the basalt doors.',
+        target_mode: 'all',
+        target_char_ids: [],
+      },
+    } as any);
+    expect(comp.activeScenePopup()?.title).toBe('Ancient Gate');
+
+    // 2. Targeted broadcast for another char leaves current unaffected; targeted for Lyra replaces immediately
+    messages$.next({
+      type: 'scene_popup',
+      payload: {
+        scene_id: 'sc-1',
+        scene_title: 'Entrance',
+        card_id: 'c-2',
+        title: 'Secret Note',
+        image_url: 'https://example.com/note.png',
+        caption: 'You recognize the wax seal.',
+        target_mode: 'selected',
+        target_char_ids: ['someone-else'],
+      },
+    } as any);
+    expect(comp.activeScenePopup()?.card_id).toBe('c-1');
+
+    messages$.next({
+      type: 'scene_popup',
+      payload: {
+        scene_id: 'sc-1',
+        scene_title: 'Entrance',
+        card_id: 'c-3',
+        title: 'Hidden Assassin',
+        image_url: 'https://example.com/assassin.png',
+        caption: 'Eyes gleam from the rafters.',
+        target_mode: 'selected',
+        target_char_ids: ['lyra-288'],
+      },
+    } as any);
+    expect(comp.activeScenePopup()?.card_id).toBe('c-3');
+
+    // 3. Remote dismiss closes active popup
+    messages$.next({
+      type: 'scene_popup_dismiss',
+      payload: { target_mode: 'all', target_char_ids: [] },
+    } as any);
+    expect(comp.activeScenePopup()).toBeNull();
+
+    // 4. Switching active hero clears any open ephemeral popup
+    messages$.next({
+      type: 'scene_popup',
+      payload: {
+        scene_id: 'sc-2',
+        scene_title: 'Vault',
+        card_id: 'c-4',
+        title: 'Iron Chest',
+        image_url: 'https://example.com/chest.png',
+        caption: '',
+        target_mode: 'all',
+        target_char_ids: [],
+      },
+    } as any);
+    expect(comp.activeScenePopup()?.card_id).toBe('c-4');
+    charState.activeCharacter.set({ ...HERO, char_id: 'other-hero', char_name: 'Kael' } as CharacterSchema);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+    expect(comp.activeScenePopup()).toBeNull();
+
+    http.match(() => true).forEach((r) => r.flush({ whispers: [], roll_requests: [], roll_logs: [] }));
+    fixture.destroy();
+  });
 });
