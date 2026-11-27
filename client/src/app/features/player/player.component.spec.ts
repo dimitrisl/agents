@@ -2675,6 +2675,52 @@ describe('PlayerComponent — Campaign Locks, Rests, Exhaustion 6 Death & Athas 
     TestBed.flushEffects();
     expect(comp.activeScenePopup()).toBeNull();
 
+    // 5. loot_distributed uses per_character breakdown so a player only sees their own coins/items
+    const toastSpy = jest.spyOn(TestBed.inject(RollToastService), 'showMessage');
+    charState.activeCharacter.set({
+      ...HERO,
+      char_id: 'lyra-288',
+      char_name: 'Lyra',
+      active_campaign: 'Obsidian Vault',
+    } as CharacterSchema);
+    fixture.detectChanges();
+    TestBed.flushEffects();
+
+    messages$.next({
+      type: 'loot_distributed',
+      payload: {
+        character_ids: ['lyra-288', 'bram-288'],
+        currency: { pp: 0, gp: 50, ep: 0, sp: 0, cp: 0 },
+        items: ['Sunfire Blade'],
+        per_character: {
+          'lyra-288': { currency: { pp: 0, gp: 50, ep: 0, sp: 0, cp: 0 }, items: [] },
+          'bram-288': { currency: { pp: 0, gp: 50, ep: 0, sp: 0, cp: 0 }, items: ['Sunfire Blade'] },
+        },
+      },
+    } as any);
+    expect(toastSpy).toHaveBeenCalledWith('💰 LOOT RECEIVED', 'The DM awarded loot: 50gp!');
+
+    // 6. Sibling-hero loot_distributed refreshes vault and notifies with sibling's exact award
+    charState.characters.set([
+      { ...HERO, char_id: 'lyra-288', char_name: 'Lyra', active_campaign: 'Obsidian Vault' } as CharacterSchema,
+      { ...HERO, char_id: 'bram-288', char_name: 'Bram', active_campaign: 'Obsidian Vault' } as CharacterSchema,
+    ]);
+    messages$.next({
+      type: 'loot_distributed',
+      payload: {
+        character_ids: ['bram-288'],
+        currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
+        items: ['Sunfire Blade'],
+        per_character: {
+          'bram-288': { currency: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 }, items: ['Sunfire Blade'] },
+        },
+      },
+    } as any);
+    expect(toastSpy).toHaveBeenCalledWith(
+      '💰 LOOT → Bram',
+      'The DM awarded loot to Bram: Sunfire Blade!'
+    );
+
     http.match(() => true).forEach((r) => r.flush({ whispers: [], roll_requests: [], roll_logs: [] }));
     fixture.destroy();
   });

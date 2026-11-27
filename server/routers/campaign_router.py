@@ -3279,6 +3279,7 @@ async def distribute_loot(
     updated_count = 0
     updated_character_ids: List[str] = []
     updated_character_names: List[str] = []
+    per_character_awards: Dict[str, Dict[str, Any]] = {}
 
     for idx, char in enumerate(valid_chars):
         char_id = char["char_id"]
@@ -3336,6 +3337,7 @@ async def distribute_loot(
         catalog_weapons = _merge_homebrew_weapons(loot_repo.get_all_weapons(), merged_loot_hb)
         for eq_item in char_equip_to_push:
             if isinstance(eq_item, dict):
+                eq_item["quantity"] = max(1, int(eq_item.get("quantity") or 1))
                 eq_item["resolved_weight_lb"] = round(
                     resolve_item_unit_weight_lb(eq_item, catalog_items, catalog_weapons), 2
                 )
@@ -3436,6 +3438,24 @@ async def distribute_loot(
             updated_count += 1
             updated_character_ids.append(char_id)
             updated_character_names.append(char.get("char_name", char_id))
+            char_awarded_curr = {
+                coin: inc_ops.get(f"currency.{coin}", 0) for coin in ("pp", "gp", "ep", "sp", "cp")
+            }
+            char_awarded_items = (
+                [w.get("name", "Unknown Weapon") for w in char_weapons_to_push]
+                + [
+                    f"{eq.get('quantity', 1)}x {eq.get('name', 'Unknown Item')}"
+                    if int(eq.get("quantity") or 1) > 1
+                    else eq.get("name", "Unknown Item")
+                    for eq in char_equip_to_push
+                ]
+                + [f.get("name", "Unknown Feature") for f in char_feats_to_push]
+                + [s.name for s in char_spells_to_push]
+            )
+            per_character_awards[char_id] = {
+                "currency": char_awarded_curr,
+                "items": char_awarded_items,
+            }
 
     item_names = [it.get("name", "Unknown Item") for it in awarded_items]
 
@@ -3452,6 +3472,7 @@ async def distribute_loot(
                     "character_names": updated_character_names,
                     "currency": char_currency,
                     "items": item_names,
+                    "per_character": per_character_awards,
                     "reason": payload.reason,
                 },
             },
@@ -3463,4 +3484,5 @@ async def distribute_loot(
         "recipients": updated_character_names,
         "currency_awarded": char_currency,
         "items_awarded": item_names,
+        "per_character": per_character_awards,
     }

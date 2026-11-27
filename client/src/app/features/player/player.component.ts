@@ -801,23 +801,47 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
         }
       } else if (msg.type === 'loot_distributed') {
         const payload = msg['payload'];
-        if (payload?.character_ids?.includes(char.char_id)) {
-          this.charState.loadCharacters().subscribe();
+        const formatLootSummary = (curr: any, items: any[] | undefined): string => {
           const details: string[] = [];
-          if (payload.currency) {
+          if (curr) {
             const currParts: string[] = [];
-            if (payload.currency.pp) currParts.push(`${payload.currency.pp}pp`);
-            if (payload.currency.gp) currParts.push(`${payload.currency.gp}gp`);
-            if (payload.currency.ep) currParts.push(`${payload.currency.ep}ep`);
-            if (payload.currency.sp) currParts.push(`${payload.currency.sp}sp`);
-            if (payload.currency.cp) currParts.push(`${payload.currency.cp}cp`);
+            if (curr.pp) currParts.push(`${curr.pp}pp`);
+            if (curr.gp) currParts.push(`${curr.gp}gp`);
+            if (curr.ep) currParts.push(`${curr.ep}ep`);
+            if (curr.sp) currParts.push(`${curr.sp}sp`);
+            if (curr.cp) currParts.push(`${curr.cp}cp`);
             if (currParts.length) details.push(currParts.join(', '));
           }
-          if (payload.items?.length) {
-            details.push(`${payload.items.length} item(s)`);
+          if (Array.isArray(items) && items.length) {
+            details.push(items.length === 1 ? String(items[0]) : `${items.length} item(s)`);
           }
-          const summary = details.length ? `: ${details.join(' & ')}` : '';
+          return details.length ? `: ${details.join(' & ')}` : '';
+        };
+
+        if (char.char_id && payload?.character_ids?.includes(char.char_id)) {
+          this.charState.loadCharacters().subscribe();
+          const mine = payload.per_character?.[char.char_id];
+          const summary = formatLootSummary(
+            mine ? mine.currency : payload.currency,
+            mine ? mine.items : payload.items
+          );
           this.rollToast.showMessage('💰 LOOT RECEIVED', `The DM awarded loot${summary}!`);
+        } else if (char.active_campaign && Array.isArray(payload?.character_ids)) {
+          const sibling = payload.character_ids
+            .map((cid: string) => this.findOtherOwnedCampaignCharacter(char.active_campaign!, char, cid))
+            .find((other: CharacterSchema | null) => !!other);
+          if (sibling?.char_id) {
+            this.charState.loadCharacters().subscribe();
+            const theirs = payload.per_character?.[sibling.char_id];
+            const summary = formatLootSummary(
+              theirs ? theirs.currency : payload.currency,
+              theirs ? theirs.items : payload.items
+            );
+            this.rollToast.showMessage(
+              `💰 LOOT → ${sibling.char_name}`,
+              `The DM awarded loot to ${sibling.char_name}${summary}!`
+            );
+          }
         }
       } else if (msg.type === 'whisper') {
         const whisper = msg['payload'] as Whisper | undefined;

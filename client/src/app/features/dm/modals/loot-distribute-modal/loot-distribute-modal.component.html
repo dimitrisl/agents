@@ -2,169 +2,333 @@
   title="💰 Distribute Loot & Currency"
   [open]="open"
   maxWidth="640px"
-  (openChange)="openChange.emit($event)"
-  (closed)="closeModal()"
+  [sheetOnMobile]="true"
+  (openChange)="!$event && onModalClosed()"
+  (closed)="onModalClosed()"
 >
-  <div class="flex flex-col gap-4">
-    <!-- Target Recipients Selection -->
-    <div>
-      <div class="flex items-center justify-between mb-2">
-        <label class="text-xs font-bold uppercase tracking-wide text-muted">Recipients</label>
+  <div class="flex flex-col gap-4" data-testid="loot-distribute-modal">
+    <!-- 1. Recipients -->
+    <section class="flex flex-col gap-2 rounded-xl bg-panel p-3" aria-label="Loot recipients">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="text-micro font-semibold uppercase text-muted">Recipients</span>
+          <forge-badge [tone]="getSelectedIds().length > 0 ? 'accent' : 'muted'" size="sm">
+            {{ getSelectedIds().length }} / {{ targetableMembers.length }}
+          </forge-badge>
+        </div>
         <button
+          forgeButton
+          variant="ghost"
+          size="sm"
           type="button"
-          class="text-xs text-accent hover:underline font-semibold"
+          [disabled]="targetableMembers.length === 0"
+          data-testid="loot-select-all-btn"
           (click)="toggleSelectAll(!allSelected)"
         >
           {{ allSelected ? 'Deselect All' : 'Select All Party' }}
         </button>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-2 bg-tile rounded border border-hairline">
-        <label
-          *ngFor="let member of partyMembers"
-          class="flex items-center gap-2 text-sm p-1.5 rounded cursor-pointer hover:bg-panel transition-colors"
-          [class.bg-panel]="selectedCharIds[member.char_id || '']"
+      @if (targetableMembers.length === 0) {
+        <p class="py-2 text-label text-muted">
+          No linked player character sheets in this campaign yet.
+        </p>
+      } @else {
+        <div class="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
+          @for (member of targetableMembers; track member.char_id) {
+            <button
+              type="button"
+              role="switch"
+              [attr.aria-checked]="!!selectedCharIds[member.char_id!]"
+              [attr.data-testid]="'loot-recipient-' + member.char_id"
+              class="inline-flex min-h-9 items-center gap-2 rounded-full px-3 py-1 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+              [ngClass]="
+                selectedCharIds[member.char_id!]
+                  ? 'bg-accent/15 font-semibold text-ink ring-1 ring-inset ring-accent'
+                  : 'bg-tile text-muted hover:text-ink'
+              "
+              (click)="toggleRecipient(member.char_id!)"
+            >
+              <span aria-hidden="true">{{ selectedCharIds[member.char_id!] ? '✓' : '○' }}</span>
+              <span class="max-w-44 truncate">{{ member.name }}</span>
+            </button>
+          }
+        </div>
+      }
+
+      @if (unlinkedMembers.length > 0) {
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <span class="text-micro uppercase text-muted">Custom (no sheet):</span>
+          @for (member of unlinkedMembers; track member.name) {
+            <forge-badge tone="muted" size="sm">{{ member.name }}</forge-badge>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- 2. Currency Distribution -->
+    <section class="flex flex-col gap-3 rounded-xl bg-panel p-3" aria-label="Award currency">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-micro font-semibold uppercase text-muted">Award Currency</span>
+        <div class="flex items-center gap-2">
+          <span class="text-label text-muted">Split evenly</span>
+          <forge-toggle
+            [checked]="splitCurrency"
+            (checkedChange)="splitCurrency = $event"
+            ariaLabel="Split currency evenly among selected recipients"
+            data-testid="loot-split-toggle"
+          ></forge-toggle>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        @for (coin of coinDefs; track coin.key) {
+          <div class="min-w-0">
+            <label
+              [for]="'loot-' + coin.key"
+              class="mb-1 block text-center text-micro font-semibold uppercase"
+              [ngClass]="coin.colorClass"
+            >
+              {{ coin.label }}
+            </label>
+            <input
+              [id]="'loot-' + coin.key"
+              forgeInput
+              dense
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="off"
+              class="text-center font-bold tabular-nums text-ink"
+              placeholder="0"
+              [value]="coinDisplay(coin.key)"
+              (input)="onCoinInput(coin.key, $event)"
+            />
+          </div>
+        }
+      </div>
+
+      @if (splitPreviewText) {
+        <p class="rounded-lg bg-tile px-3 py-2 text-label text-ink" data-testid="loot-split-preview">
+          <span class="font-semibold text-accent">Split preview · </span>{{ splitPreviewText }}
+        </p>
+      }
+    </section>
+
+    <!-- 3. Award Items (Optional) -->
+    <section class="flex flex-col gap-3 rounded-xl bg-panel p-3" aria-label="Award items">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-micro font-semibold uppercase text-muted">Award Items (Optional)</span>
+        <div
+          class="grid grid-cols-3 rounded-full border border-hairline bg-deep p-1"
+          role="radiogroup"
+          aria-label="Item source"
         >
-          <input
-            type="checkbox"
-            [checked]="selectedCharIds[member.char_id || '']"
-            (change)="toggleRecipient(member.char_id || '')"
-            class="rounded border-hairline text-accent"
-          />
-          <span class="font-medium text-ink truncate">{{ member.name }}</span>
-        </label>
-      </div>
-    </div>
-
-    <!-- Currency Distribution -->
-    <div class="bg-tile p-3 rounded border border-hairline">
-      <div class="flex items-center justify-between mb-2">
-        <label class="text-xs font-bold uppercase tracking-wide text-muted">Award Currency</label>
-        <label class="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
-          <input
-            type="checkbox"
-            [(ngModel)]="splitCurrency"
-            class="rounded border-hairline text-accent"
-          />
-          <span>Split evenly among recipients</span>
-        </label>
-      </div>
-
-      <div class="grid grid-cols-5 gap-2">
-        <div>
-          <span class="text-micro font-bold text-muted block text-center mb-0.5">PP</span>
-          <input
-            forgeInput
-            type="number"
-            min="0"
-            [(ngModel)]="pp"
-            class="text-center font-bold text-ink"
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <label for="loot-gp" class="text-micro font-bold text-gold block text-center mb-0.5">GP</label>
-          <input
-            id="loot-gp"
-            forgeInput
-            type="number"
-            min="0"
-            [(ngModel)]="gp"
-            class="text-center font-bold text-ink"
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <label for="loot-ep" class="text-micro font-bold text-cobalt block text-center mb-0.5">EP</label>
-          <input
-            id="loot-ep"
-            forgeInput
-            type="number"
-            min="0"
-            [(ngModel)]="ep"
-            class="text-center font-bold text-ink"
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <label for="loot-sp" class="text-micro font-bold text-muted block text-center mb-0.5">SP</label>
-          <input
-            id="loot-sp"
-            forgeInput
-            type="number"
-            min="0"
-            [(ngModel)]="sp"
-            class="text-center font-bold text-ink"
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <label for="loot-cp" class="text-micro font-bold text-gold/80 block text-center mb-0.5">CP</label>
-          <input
-            id="loot-cp"
-            forgeInput
-            type="number"
-            min="0"
-            [(ngModel)]="cp"
-            class="text-center font-bold text-ink"
-            placeholder="0"
-          />
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="itemSource === 'custom'"
+            [attr.tabindex]="itemSource === 'custom' ? 0 : -1"
+            data-testid="loot-source-custom"
+            class="min-h-8 rounded-full px-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [ngClass]="itemSource === 'custom' ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+            (click)="setItemSource('custom')"
+            (keydown)="onItemSourceKeydown($event)"
+          >
+            ✨ Custom
+          </button>
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="itemSource === 'official'"
+            [attr.tabindex]="itemSource === 'official' ? 0 : -1"
+            data-testid="loot-source-official"
+            class="min-h-8 rounded-full px-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [ngClass]="itemSource === 'official' ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+            (click)="setItemSource('official')"
+            (keydown)="onItemSourceKeydown($event)"
+          >
+            📖 Official
+          </button>
+          <button
+            type="button"
+            role="radio"
+            [attr.aria-checked]="itemSource === 'homebrew'"
+            [attr.tabindex]="itemSource === 'homebrew' ? 0 : -1"
+            data-testid="loot-source-homebrew"
+            class="min-h-8 rounded-full px-2 text-label transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [ngClass]="itemSource === 'homebrew' ? 'bg-tile font-semibold text-ink' : 'text-muted hover:text-ink'"
+            (click)="setItemSource('homebrew')"
+            (keydown)="onItemSourceKeydown($event)"
+          >
+            🧪 Homebrew
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- Award Equipment / Homebrew Items -->
-    <div class="space-y-3">
-      <label class="text-xs font-bold uppercase tracking-wide text-muted block">Award Items (Optional)</label>
+      @switch (itemSource) {
+        @case ('custom') {
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_96px]">
+            <div class="min-w-0">
+              <label for="loot-custom-name" class="mb-1 block text-micro font-semibold uppercase text-muted">
+                Custom Item Name
+              </label>
+              <input
+                id="loot-custom-name"
+                forgeInput
+                type="text"
+                [(ngModel)]="customItemName"
+                placeholder="e.g. Potion of Healing"
+              />
+            </div>
+            <div class="min-w-0">
+              <label for="loot-custom-qty" class="mb-1 block text-micro font-semibold uppercase text-muted">
+                Qty
+              </label>
+              <input
+                id="loot-custom-qty"
+                forgeInput
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                placeholder="1"
+                class="text-center font-bold tabular-nums"
+                [value]="customItemQuantityInput"
+                (input)="onQuantityInput($event, 'custom')"
+                (blur)="onQuantityBlur('custom')"
+              />
+            </div>
+          </div>
+          <div class="min-w-0">
+            <label for="loot-custom-desc" class="mb-1 block text-micro font-semibold uppercase text-muted">
+              Item Description / Notes
+            </label>
+            <input
+              id="loot-custom-desc"
+              forgeInput
+              type="text"
+              [(ngModel)]="customItemDesc"
+              placeholder="Optional mechanics, charges, or lore"
+            />
+          </div>
+        }
 
-      <!-- Homebrew select if available -->
-      <div *ngIf="availableHomebrewItems.length > 0">
-        <label class="text-micro text-muted font-medium mb-1 block">From Campaign Homebrew:</label>
-        <select
-          [(ngModel)]="selectedHomebrewId"
-          class="w-full bg-surface border border-hairline rounded p-2 text-ink text-sm"
-        >
-          <option value="">-- None --</option>
-          <option *ngFor="let hb of availableHomebrewItems" [value]="hb._id">
-            [{{ hb.homebrew_type }}] {{ hb.name }}
-          </option>
-        </select>
-      </div>
+        @case ('official') {
+          @if (loadingOfficialItems) {
+            <div class="flex min-h-20 items-center justify-center">
+              <forge-spinner size="sm" tone="accent" label="Loading official D&D items" />
+            </div>
+          } @else {
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_96px]">
+              <div class="min-w-0">
+                <label for="loot-official-search" class="mb-1 block text-micro font-semibold uppercase text-muted">
+                  Filter SRD Catalog
+                </label>
+                <input
+                  id="loot-official-search"
+                  forgeInput
+                  type="text"
+                  [ngModel]="officialItemSearch"
+                  (ngModelChange)="onOfficialSearchChange($event)"
+                  placeholder="Search Potion, Bag of Holding, Armor…"
+                />
+              </div>
+              <div class="min-w-0">
+                <label for="loot-official-qty" class="mb-1 block text-micro font-semibold uppercase text-muted">
+                  Qty
+                </label>
+                <input
+                  id="loot-official-qty"
+                  forgeInput
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="1"
+                  class="text-center font-bold tabular-nums"
+                  [value]="officialItemQuantityInput"
+                  (input)="onQuantityInput($event, 'official')"
+                  (blur)="onQuantityBlur('official')"
+                />
+              </div>
+            </div>
+            <div class="min-w-0">
+              <label for="loot-official-select" class="mb-1 block text-micro font-semibold uppercase text-muted">
+                Official Item ({{ filteredOfficialItems.length }})
+              </label>
+              <select
+                id="loot-official-select"
+                forgeSelect
+                [(ngModel)]="selectedOfficialItemName"
+                data-testid="loot-official-select"
+              >
+                <option value="">— None —</option>
+                @for (item of filteredOfficialItems; track item.name) {
+                  <option [value]="item.name">
+                    {{ item.name }}@if (item.type) { ({{ item.type }})}@if (item.weight) { · {{ item.weight }} lb}
+                  </option>
+                }
+              </select>
+            </div>
+            @if (selectedOfficialItem?.description) {
+              <p class="rounded-lg bg-tile px-3 py-2 text-label text-muted">
+                {{ selectedOfficialItem?.description }}
+              </p>
+            }
+          }
+        }
 
-      <!-- Custom Item -->
-      <div class="grid grid-cols-2 gap-2">
-        <div class="col-span-2 sm:col-span-1">
-          <label class="text-micro text-muted font-medium mb-1 block">Custom Item Name:</label>
+        @case ('homebrew') {
+          <div class="min-w-0">
+            <label for="loot-homebrew-select" class="mb-1 block text-micro font-semibold uppercase text-muted">
+              From Campaign Homebrew
+            </label>
+            @if (availableHomebrewItems.length === 0) {
+              <p class="rounded-lg bg-tile px-3 py-2 text-label text-muted">
+                No homebrew weapons or items in this campaign yet. Create one in DM Preparation → Bestiary &amp; Homebrew.
+              </p>
+            } @else {
+              <select
+                id="loot-homebrew-select"
+                forgeSelect
+                [(ngModel)]="selectedHomebrewId"
+                data-testid="loot-homebrew-select"
+              >
+                <option value="">— None —</option>
+                @for (hb of availableHomebrewItems; track hb._id || hb.name) {
+                  <option [value]="hb._id">[{{ hb.homebrew_type }}] {{ hb.name }}</option>
+                }
+              </select>
+            }
+          </div>
+        }
+      }
+
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div class="min-w-0" [class.sm:col-span-2]="!(selectedPartyMembers.length > 1 && hasAnyItem)">
+          <label for="loot-reason" class="mb-1 block text-micro font-semibold uppercase text-muted">
+            Reason / Source
+          </label>
           <input
-            forgeInput
-            type="text"
-            [(ngModel)]="customItemName"
-            placeholder="e.g. Potion of Healing"
-          />
-        </div>
-        <div class="col-span-2 sm:col-span-1">
-          <label class="text-micro text-muted font-medium mb-1 block">Reason / Source:</label>
-          <input
+            id="loot-reason"
             forgeInput
             type="text"
             [(ngModel)]="reason"
             placeholder="e.g. Chest in Room 4"
           />
         </div>
-        <div class="col-span-2">
-          <label class="text-micro text-muted font-medium mb-1 block">Item Description:</label>
-          <input
-            forgeInput
-            type="text"
-            [(ngModel)]="customItemDesc"
-            placeholder="Optional item notes or mechanics"
-          />
-        </div>
-        @if (selectedPartyMembers.length > 1 && (customItemName.trim() || selectedHomebrewId)) {
-          <div class="col-span-2">
-            <label class="text-micro text-muted font-medium mb-1 block">Item Recipient:</label>
-            <select forgeSelect [(ngModel)]="itemRecipientId">
-              <option value="">All Selected Recipients (or First Hero if Unique/Attuned)</option>
+
+        @if (selectedPartyMembers.length > 1 && hasAnyItem) {
+          <div class="min-w-0">
+            <label for="loot-item-recipient" class="mb-1 block text-micro font-semibold uppercase text-muted">
+              Item Recipient
+            </label>
+            <select
+              id="loot-item-recipient"
+              forgeSelect
+              [(ngModel)]="itemRecipientId"
+              data-testid="loot-item-recipient"
+            >
+              <option value="">All Selected (or 1st Hero if Unique/Attuned)</option>
               @for (m of selectedPartyMembers; track m.char_id) {
                 <option [value]="m.char_id">Only {{ m.name }}</option>
               }
@@ -172,21 +336,35 @@
           </div>
         }
       </div>
-    </div>
+    </section>
 
     <!-- Actions -->
-    <div class="flex justify-end gap-2 pt-2 border-t border-hairline mt-2">
-      <button forgeButton variant="secondary" type="button" (click)="closeModal()">
-        Cancel
-      </button>
-      <button
-        forgeButton
-        type="button"
-        [disabled]="isDistributing || getSelectedIds().length === 0"
-        (click)="distribute()"
-      >
-        {{ isDistributing ? 'Distributing...' : '💰 Award Loot' }}
-      </button>
+    <div class="flex flex-col-reverse gap-2 border-t border-hairline pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <p class="text-label text-muted">
+        @if (getSelectedIds().length === 0) {
+          Pick at least one hero above.
+        } @else if (!hasPositiveCurrency && !hasAnyItem) {
+          Enter coins or select an item to award.
+        } @else {
+          Ready to send to {{ getSelectedIds().length }} {{ getSelectedIds().length === 1 ? 'hero' : 'heroes' }}.
+        }
+      </p>
+      <div class="flex justify-end gap-2">
+        <button forgeButton variant="ghost" type="button" [disabled]="isDistributing" (click)="closeModal()">
+          Cancel
+        </button>
+        <button
+          forgeButton
+          variant="primary"
+          type="button"
+          [loading]="isDistributing"
+          [disabled]="!canDistribute"
+          data-testid="loot-submit-btn"
+          (click)="distribute()"
+        >
+          💰 Award Loot
+        </button>
+      </div>
     </div>
   </div>
 </forge-modal>
