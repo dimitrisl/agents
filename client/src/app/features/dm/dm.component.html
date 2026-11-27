@@ -87,6 +87,11 @@
               <button forgeButton variant="secondary" tone="accent" class="w-full" data-testid="open-scene-caster-btn" (click)="openSceneCasterModal()">
                 🎬 Cast Scene Pop-up
               </button>
+              @if (partyMembers.length > 0) {
+                <button forgeButton variant="secondary" type="button" class="w-full" data-testid="sidebar-distribute-loot-btn" (click)="openLootModal()">
+                  💰 Distribute Loot
+                </button>
+              }
             </div>
 
           <div class="border-t border-hairline">
@@ -553,9 +558,12 @@
     [campaignName]="campaignName"
     [partyMembers]="partyMembers"
     [homebrewItems]="homebrewItems"
+    [officialItems]="officialLootItems"
+    [loadingOfficialItems]="loadingOfficialLootItems"
     (openChange)="showLootModal = $event"
     (closed)="showLootModal = false"
     (distributed)="loadParty()"
+    (requestOfficialItems)="loadOfficialLootItems()"
   ></app-loot-distribute-modal>
 
   <app-dm-modifiers-modal

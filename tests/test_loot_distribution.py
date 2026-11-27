@@ -186,3 +186,129 @@ def test_top_level_item_recipient_id_remains_backward_compatible(loot_env):
     kaelen = raw_db["characters"].find_one({"char_id": "kaelen_id"})
     assert seraphina["equipment"] == []
     assert [it["name"] for it in kaelen["equipment"]] == ["Bag of Holding"]
+
+
+@pytest.mark.parametrize("edition", ["2014 Edition", "2024 Revision (5.5e)"])
+def test_per_character_ws_awards_isolate_targeted_items_and_quantity(edition):
+    """WS loot_distributed payload carries exact per_character currency & items across 2014/2024."""
+    async_db = _AsyncDB()
+    dm_user = {"id": "dm_1", "username": "DungeonMaster", "is_admin": False}
+    async_db._db["campaigns"].insert_one(
+        {"campaign_name": "Vault", "owner_id": "dm_1", "dnd_edition": edition, "party": []}
+    )
+    async_db._db["campaign_members"].insert_one(
+        {"campaign_id": "Vault", "user_id": "dm_1", "role": "dm"}
+    )
+    async_db._db["characters"].insert_many(
+        [
+            {
+                "char_id": "hero_a",
+                "char_name": "Lyra",
+                "owner_id": "p1",
+                "active_campaign": "Vault",
+                "dnd_edition": edition,
+                "stats": {"STR": 10, "DEX": 16, "CON": 12, "INT": 12, "WIS": 12, "CHA": 14},
+                "proficiency_bonus": 2,
+                "currency": {"pp": 0, "gp": 0, "ep": 0, "sp": 0, "cp": 0},
+                "equipment": [],
+                "weapons": [],
+                "version": 1,
+            },
+            {
+                "char_id": "hero_b",
+                "char_name": "Bram",
+                "owner_id": "p2",
+                "active_campaign": "Vault",
+                "dnd_edition": edition,
+                "stats": {"STR": 16, "DEX": 12, "CON": 14, "INT": 10, "WIS": 12, "CHA": 10},
+                "proficiency_bonus": 2,
+                "currency": {"pp": 0, "gp": 0, "ep": 0, "sp": 0, "cp": 0},
+                "equipment": [],
+                "weapons": [],
+                "version": 1,
+            },
+        ]
+    )
+
+    orig = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = lambda: dm_user
+    app.dependency_overrides[get_database] = lambda: async_db
+    try:
+        with patch(
+            "server.routers.websocket_router.manager.broadcast", new_callable=AsyncMock
+        ) as mock_broadcast:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/v1/campaigns/Vault/loot/distribute",
+                json={
+                    "character_ids": ["hero_a", "hero_b"],
+                    "split_currency": True,
+                    "currency": {"pp": 0, "gp": 0, "ep": 0, "sp": 0, "cp": 3},
+                    "item_recipient_id": "hero_b",
+                    "items": [
+                        {
+                            "name": "Potion of Healing",
+                            "type": "item",
+                            "quantity": 3,
+                            "weight": 0.5,
+                        }
+                    ],
+                },
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["per_character"]["hero_a"] == {
+                "currency": {"pp": 0, "gp": 0, "ep": 0, "sp": 0, "cp": 2},
+                "items": [],
+            }
+            assert data["per_character"]["hero_b"] == {
+                "currency": {"pp": 0, "gp": 0, "ep": 0, "sp": 0, "cp": 1},
+                "items": ["3x Potion of Healing"],
+            }
+            ws_payload = mock_broadcast.call_args.args[1]["payload"]
+            assert ws_payload["per_character"] == data["per_character"]
+
+            # Verify persisted MongoDB character documents
+            hero_a = async_db._db["characters"].find_one({"char_id": "hero_a"})
+            hero_b = async_db._db["characters"].find_one({"char_id": "hero_b"})
+            assert hero_a["currency"]["cp"] == 2
+            assert hero_a["equipment"] == []
+            assert hero_b["currency"]["cp"] == 1
+            assert len(hero_b["equipment"]) == 1
+            assert hero_b["equipment"][0]["quantity"] == 3
+            assert hero_b["equipment"][0]["resolved_weight_lb"] == 0.5
+            assert hero_b["total_weight_lb"] == pytest.approx(1.5, abs=0.05)
+
+            # Award official SRD Shield +2 without ac_bonus override -> stats_service resolves +4 AC
+            shield_resp = client.post(
+                "/api/v1/campaigns/Vault/loot/distribute",
+                json={
+                    "character_ids": ["hero_b"],
+                    "items": [
+                        {
+                            "name": "Shield +2",
+                            "description": "A shield is made from wood or metal.",
+                            "type": "item",
+                            "weight": 6,
+                        }
+                    ],
+                },
+            )
+            assert shield_resp.status_code == 200
+            hero_b_after = async_db._db["characters"].find_one({"char_id": "hero_b"})
+            shield_entry = next(e for e in hero_b_after["equipment"] if e["name"] == "Shield +2")
+            assert shield_entry["ac_bonus"] == 0
+            shield_entry["equipped"] = True
+
+            from backend.services.stats_service import calculate_ac
+
+            # Base 10 + DEX (+1) + Shield (+2) + Magic (+2) = 15
+            ac_val = calculate_ac(
+                hero_b_after["stats"]["DEX"],
+                hero_b_after["equipment"],
+                char_class="Fighter",
+                edition=edition,
+            )
+            assert ac_val == 15
+    finally:
+        app.dependency_overrides = orig

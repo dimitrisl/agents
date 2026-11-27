@@ -159,9 +159,194 @@ describe('LootDistributeModalComponent', () => {
     expect(component.getSelectedIds()).toEqual(['char_1']);
 
     component.splitCurrency = true;
+    component.reason = 'Dragon Hoard';
     component.closeModal();
 
     expect(component.selectedCharIds).toEqual({});
     expect(component.splitCurrency).toBe(false);
+    expect(component.reason).toBe('Quest Reward');
+  });
+
+  it('ignores unlinked custom party members in allSelected/toggleRecipient and computes live split preview', () => {
+    component.partyMembers = [
+      ...mockParty,
+      {
+        name: 'Camp Mascot NPC',
+        char_class: 'Commoner',
+        level: 1,
+        hp_current: 4,
+        hp_max: 4,
+        ac: 10,
+        passive_perception: 10,
+        conditions: [],
+      },
+    ];
+
+    expect(component.targetableMembers.length).toBe(2);
+    expect(component.unlinkedMembers.length).toBe(1);
+
+    component.toggleRecipient('');
+    expect(component.getSelectedIds()).toEqual([]);
+
+    component.toggleSelectAll(true);
+    expect(component.allSelected).toBe(true);
+    expect(component.getSelectedIds()).toEqual(['char_1', 'char_2']);
+
+    component.onCoinInput('gp', '1');
+    component.splitCurrency = true;
+    expect(component.splitPreviewText).toBe('Each hero gets 5 sp');
+
+    // Negative values are clamped safely instead of sending negative currency
+    component.gp = -50;
+    component.sp = 10;
+    expect(component.hasPositiveCurrency).toBe(true);
+  });
+
+  it('lazily requests official SRD catalog items, sends structured item + quantity, and formats 422 array errors', () => {
+    const toastSpy = jest.spyOn(toast, 'showMessage');
+    let requested = 0;
+    component.requestOfficialItems.subscribe(() => {
+      requested += 1;
+    });
+
+    component.setItemSource('official');
+    expect(requested).toBe(1);
+
+    component.officialItems = [
+      {
+        name: 'Potion of Healing',
+        type: 'Potion',
+        weight: 0.5,
+        description: 'Regain 2d4 + 2 HP.',
+      },
+      {
+        name: 'Plate Armor',
+        type: 'Heavy Armor',
+        weight: 65,
+        description: 'Heavy interlocking plates.',
+      },
+    ];
+    component.officialItemSearch = 'potion';
+    expect(component.filteredOfficialItems.map((i) => i.name)).toEqual(['Potion of Healing']);
+
+    component.selectedCharIds = { char_1: true };
+    component.selectedOfficialItemName = 'Potion of Healing';
+    component.onQuantityInput('3', 'official');
+    component.distribute();
+
+    const req = http.expectOne((r) => r.url.endsWith('/campaigns/Phandelver/loot/distribute'));
+    expect(req.request.body.items).toEqual([
+      {
+        name: 'Potion of Healing',
+        description: 'Regain 2d4 + 2 HP.',
+        type: 'item',
+        quantity: 3,
+        weight: 0.5,
+      },
+    ]);
+
+    // Simulate FastAPI 422 validation error array -> formatted cleanly without [object Object]
+    req.flush(
+      { detail: [{ loc: ['body', 'currency', 'gp'], msg: 'Input should be >= 0' }] },
+      { status: 422, statusText: 'Unprocessable Entity' }
+    );
+    expect(toastSpy).toHaveBeenCalledWith('❌ DISTRIBUTION FAILED', 'Input should be >= 0');
+  });
+
+  it('omits ac_bonus on official Shield +2, syncs DOM input values on invalid chars, clears non-matching search selection, and enforces mutually exclusive tabs', () => {
+    // 1. DOM input sanitization rewrites <input>.value immediately when invalid characters are typed
+    const coinInput = document.createElement('input');
+    coinInput.value = '-abc';
+    component.onCoinInput('gp', { target: coinInput } as unknown as Event);
+    expect(component.gp).toBe(0);
+    expect(coinInput.value).toBe('');
+
+    coinInput.value = '50a';
+    component.onCoinInput('gp', { target: coinInput } as unknown as Event);
+    expect(component.gp).toBe(50);
+    expect(coinInput.value).toBe('50');
+
+    const qtyInput = document.createElement('input');
+    // Backspace clears display to '' (no snap-back to '1' that causes '13' on next digit!)
+    qtyInput.value = '';
+    component.onQuantityInput({ target: qtyInput } as unknown as Event, 'official');
+    expect(component.officialItemQuantity).toBe(1);
+    expect(component.officialItemQuantityInput).toBe('');
+    expect(qtyInput.value).toBe('');
+
+    // Typing '3' after Backspace sets quantity cleanly to 3
+    qtyInput.value = '3';
+    component.onQuantityInput({ target: qtyInput } as unknown as Event, 'official');
+    expect(component.officialItemQuantity).toBe(3);
+    expect(component.officialItemQuantityInput).toBe('3');
+    expect(qtyInput.value).toBe('3');
+
+    // Invalid chars/zero strip cleanly and blur restores '1'
+    qtyInput.value = '0abc';
+    component.onQuantityInput({ target: qtyInput } as unknown as Event, 'official');
+    expect(component.officialItemQuantity).toBe(1);
+    expect(qtyInput.value).toBe('');
+    component.onQuantityBlur('official');
+    expect(component.officialItemQuantityInput).toBe('1');
+
+    // getSelectedIds() follows visible partyMembers order, not click order
+    component.toggleRecipient('char_2');
+    component.toggleRecipient('char_1');
+    expect(component.getSelectedIds()).toEqual(['char_1', 'char_2']);
+    component.selectedCharIds = {};
+
+    // In-flight distribute finishing after modal close + reopen does not close the new session
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    component.selectedCharIds = { char_1: true };
+    component.gp = 10;
+    component.distribute();
+    const inFlightReq = http.expectOne((r) => r.url.endsWith('/campaigns/Phandelver/loot/distribute'));
+
+    // Close and reopen before response arrives
+    component.closeModal();
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    expect(component.isDistributing).toBe(false);
+
+    let closedNewSession = false;
+    component.closed.subscribe(() => {
+      closedNewSession = true;
+    });
+    inFlightReq.flush({ success: true, message: 'ok' });
+    expect(closedNewSession).toBe(false);
+
+    // 2. Switching itemSource clears hidden tabs (true radiogroup semantics)
+    component.customItemName = 'Old Rope';
+    component.setItemSource('official');
+    expect(component.customItemName).toBe('');
+
+    // 3. Filtering Official SRD clears selectedOfficialItemName if it no longer matches
+    component.officialItems = [
+      { name: 'Shield +2', type: 'Shield', weight: 6, ac_bonus: 2, magic_bonus: 2, description: 'Magic shield.' },
+      { name: 'Potion of Healing', type: 'Potion', weight: 0.5, description: 'Heals.' },
+    ];
+    component.selectedOfficialItemName = 'Shield +2';
+    component.onOfficialSearchChange('potion');
+    expect(component.selectedOfficialItemName).toBe('');
+
+    // 4. Official Shield +2 payload omits ac_bonus so backend resolves +2 base +2 magic = +4 AC
+    component.onOfficialSearchChange('');
+    component.selectedOfficialItemName = 'Shield +2';
+    component.selectedCharIds = { char_1: true };
+    component.distribute();
+    const req = http.expectOne((r) => r.url.endsWith('/campaigns/Phandelver/loot/distribute'));
+    expect(req.request.body.items).toEqual([
+      {
+        name: 'Shield +2',
+        description: 'Magic shield.',
+        type: 'item',
+        weight: 6,
+      },
+    ]);
+    expect('ac_bonus' in req.request.body.items[0]).toBe(false);
+    req.flush({ success: true, message: 'ok' });
   });
 });

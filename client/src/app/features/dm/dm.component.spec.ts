@@ -975,6 +975,25 @@ afterEach(() => {
       expect(component.homebrewItems.length).toBe(1);
       expect(component.homebrewItems[0].name).toBe('Vorpal Sword');
     });
+
+    it('lazily loads sorted official SRD loot items once and clears homebrewItems on clearWorkspace', () => {
+      component.loadOfficialLootItems();
+      const req = http.expectOne((r) => r.url.endsWith('/rules/items'));
+      req.flush([
+        { name: 'Torch', type: 'Gear', weight: 1 },
+        { name: 'Bag of Holding', type: 'Wondrous Item', weight: 15 },
+      ]);
+      expect(component.officialLootItems.map((i) => i.name)).toEqual(['Bag of Holding', 'Torch']);
+
+      // Second call uses cache (no duplicate request)
+      component.loadOfficialLootItems();
+
+      component.homebrewItems = [{ _id: '1', name: 'Flame Tongue', homebrew_type: 'weapon' }];
+      component.showLootModal = true;
+      (component as any).clearWorkspace();
+      expect(component.homebrewItems).toEqual([]);
+      expect(component.showLootModal).toBe(false);
+    });
   });
 
   describe('Initiative Panel Controls & Physical Rolls', () => {

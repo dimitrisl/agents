@@ -72,6 +72,7 @@ import { RollRequestModalComponent } from './modals/roll-request-modal/roll-requ
 import { StatblockModalComponent } from './modals/statblock-modal/statblock-modal.component';
 import { NewCampaignModalComponent } from './modals/new-campaign-modal/new-campaign-modal.component';
 import { AddMemberModalComponent } from './modals/add-member-modal/add-member-modal.component';
+import type { OfficialLootItem } from '../../core/models/loot.model';
 import { LootDistributeModalComponent } from './modals/loot-distribute-modal/loot-distribute-modal.component';
 import {
   DmModifiersModalComponent,
@@ -258,6 +259,8 @@ export class DmComponent implements OnInit, OnDestroy {
   showModifiersModal = false;
   selectedModifierMember: PartyMember | null = null;
   homebrewItems: HomebrewItem[] = [];
+  officialLootItems: OfficialLootItem[] = [];
+  loadingOfficialLootItems = false;
 
   // --- DM Story Scenes & Visual Handout Pop-ups (#288) ---
   storyScenes: StoryScene[] = [];
@@ -1036,6 +1039,8 @@ export class DmComponent implements OnInit, OnDestroy {
     this.riddleTheme = '';
     this.encounterResult = null;
     this.npcResult = '';
+    this.homebrewItems = [];
+    this.showLootModal = false;
     this.resetStorySceneState();
   }
 
@@ -1101,6 +1106,8 @@ export class DmComponent implements OnInit, OnDestroy {
     this.showDmInbox = false;
     this.inboxReplyMessage = '';
     this.inboxReplyRecipient = 'All';
+    this.homebrewItems = [];
+    this.showLootModal = false;
     this.resetStorySceneState();
     this.loadParty();
     if (this.activeTab === 'scenes') {
@@ -1284,11 +1291,40 @@ export class DmComponent implements OnInit, OnDestroy {
 
   openLootModal() {
     this.showLootModal = true;
-    if (this.campaignName) {
-      this.homebrewService.loadHomebrew(this.campaignName).subscribe(items => {
-        this.homebrewItems = items || [];
-      });
+    const camp = this.campaignName;
+    if (camp) {
+      this.homebrewService
+        .loadHomebrew(camp)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (items) => {
+            if (this.campaignName === camp) {
+              this.homebrewItems = items || [];
+            }
+          },
+          error: () => {
+            // Non-blocking: DM can still award currency, official SRD, or custom items
+          },
+        });
     }
+  }
+
+  loadOfficialLootItems(): void {
+    if (this.officialLootItems.length > 0 || this.loadingOfficialLootItems) return;
+    this.loadingOfficialLootItems = true;
+    this.http
+      .get<OfficialLootItem[]>(`${environment.apiBaseUrl}/rules/items`)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.officialLootItems = (items || []).slice().sort((a, b) => a.name.localeCompare(b.name));
+          this.loadingOfficialLootItems = false;
+        },
+        error: () => {
+          this.loadingOfficialLootItems = false;
+          this.rollToast.showMessage('⚠️ CATALOG UNAVAILABLE', 'Could not load official D&D items catalog.');
+        },
+      });
   }
 
   copyInviteCode() {
