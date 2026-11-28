@@ -1,5 +1,5 @@
 <forge-modal [open]="open" [title]="'Conditions & Concentration'" (closed)="closed.emit()">
-  <div class="space-y-6">
+  <div class="space-y-4">
     <section>
       <h3 class="text-label font-semibold uppercase text-muted mb-2">Concentration</h3>
       <input
@@ -15,26 +15,72 @@
     <section>
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-label font-semibold uppercase text-muted">Active Conditions</h3>
+        @if (countermeasures.length > 0) {
+          <span class="text-micro text-accent" title="Class, species, or sense countermeasures detected">
+            🛡️ {{ countermeasures.length }} antidote{{ countermeasures.length === 1 ? '' : 's' }} detected
+          </span>
+        }
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        <button
-          *ngFor="let cond of availableConditions"
-          type="button"
-          class="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
-          [attr.aria-pressed]="selectedConditions.has(cond)"
-          (click)="toggleCondition(cond)"
-        >
-          <forge-badge
-            [interactive]="true"
-            [tone]="selectedConditions.has(cond) ? 'danger' : 'muted'"
-            class="w-full justify-center"
+        @for (cond of availableConditions; track cond) {
+          <button
+            type="button"
+            class="min-h-10 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-deep"
+            [attr.aria-pressed]="selectedConditions.has(cond)"
+            [attr.data-testid]="'condition-toggle-' + cond"
+            [title]="countermeasureTooltip(cond)"
+            (click)="toggleCondition(cond)"
           >
-            {{ cond }}
-            <span *ngIf="selectedConditions.has(cond)" aria-hidden="true" class="ml-1">✓</span>
-          </forge-badge>
-        </button>
+            <forge-badge
+              [interactive]="true"
+              [tone]="selectedConditions.has(cond) ? 'danger' : 'muted'"
+              class="min-h-10 w-full justify-center"
+            >
+              {{ cond }}
+              @if (countermeasuresFor(cond).length > 0) {
+                <span aria-hidden="true" class="ml-1 text-accent">🛡️</span>
+              }
+              @if (selectedConditions.has(cond)) {
+                <span aria-hidden="true" class="ml-1">✓</span>
+              }
+            </forge-badge>
+          </button>
+        }
       </div>
     </section>
+
+    @if (activeWarnings.length > 0) {
+      <section
+        class="rounded-xl border border-accent/40 bg-accent/10 p-3"
+        role="status"
+        data-testid="conditions-antidote-warnings"
+      >
+        <p class="text-micro font-bold uppercase text-accent">
+          🛡️ Antidotes &amp; Countermeasures (Manual Override Allowed)
+        </p>
+        <ul class="mt-1.5 space-y-1 text-label text-ink">
+          @for (warn of activeWarnings; track warn.condition + warn.source) {
+            <li>
+              <strong>{{ warn.condition }}</strong> — {{ warn.source }}:
+              <span class="text-muted">{{ warn.detail }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (activeImpactSummaries.length > 0) {
+      <section class="rounded-xl bg-tile p-3" data-testid="conditions-effects-summary">
+        <p class="text-micro font-semibold uppercase text-muted">Active Mechanical Effects</p>
+        <div class="mt-1.5 flex flex-wrap gap-1.5">
+          @for (item of activeImpactSummaries; track item.condition) {
+            <forge-badge tone="muted" size="sm">
+              {{ item.condition }}: {{ item.tags.join(' · ') }}
+            </forge-badge>
+          }
+        </div>
+      </section>
+    }
   </div>
 
   <div class="mt-6 flex gap-3">

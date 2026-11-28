@@ -461,6 +461,10 @@ class CharacterSchema(BaseModel):
     weapon_proficiencies: List[str] = Field(default_factory=list)
     senses: List[str] = Field(default_factory=list)
     damage_resistances: List[str] = Field(default_factory=list)
+    damage_immunities: List[str] = Field(default_factory=list)
+    damage_vulnerabilities: List[str] = Field(default_factory=list)
+    derived_damage_resistances: List[str] = Field(default_factory=list)
+    derived_damage_immunities: List[str] = Field(default_factory=list)
     save_advantages: List[str] = Field(default_factory=list)
     weapon_masteries: List[str] = Field(default_factory=list)
     weapons: List[Weapon] = Field(default_factory=list)
@@ -545,6 +549,28 @@ class CharacterSchema(BaseModel):
         if isinstance(v, dict):
             return CurrencySchema(**v)
         return v
+
+    @field_validator(
+        "damage_resistances",
+        "damage_immunities",
+        "damage_vulnerabilities",
+        "derived_damage_resistances",
+        "derived_damage_immunities",
+        mode="before",
+    )
+    @classmethod
+    def normalize_damage_defenses(cls, v: Any) -> List[str]:
+        if not isinstance(v, (list, tuple, set)):
+            return []
+        out: List[str] = []
+        seen = set()
+        for item in v:
+            clean = str(item or "").strip()
+            low = clean.lower()
+            if clean and low not in seen:
+                seen.add(low)
+                out.append(clean)
+        return out
 
     @field_validator("class_resources", mode="before")
     @classmethod

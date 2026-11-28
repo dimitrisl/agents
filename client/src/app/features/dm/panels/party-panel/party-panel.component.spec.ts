@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import { PartyPanelComponent } from './party-panel.component';
 import { PartyMember } from '../../../../core/models/party.model';
 
@@ -109,5 +110,31 @@ describe('PartyPanelComponent', () => {
       expect(exhSpy).toHaveBeenCalledWith({ member: mockMember, delta: 1 });
       expect(modsSpy).toHaveBeenCalledWith(mockMember);
     });
+  });
+
+  it('surfaces antidote countermeasures and speed lock indicators even when no other status badges exist', () => {
+    const paladinL10: PartyMember = {
+      ...mockMember,
+      level: 10,
+      conditions: ['Frightened', 'Grappled'],
+    };
+    const antidotes = component.conditionAntidotes(paladinL10);
+    expect(antidotes.some((a) => a.condition === 'Frightened' && a.source === 'Aura of Courage')).toBe(true);
+    expect(component.speedLock(paladinL10)).toBe('Grappled');
+    expect(component.hasStatusBadges(paladinL10)).toBe(true);
+
+    TestBed.configureTestingModule({
+      imports: [PartyPanelComponent],
+    });
+    const fixture = TestBed.createComponent(PartyPanelComponent);
+    fixture.componentInstance.campaignName = 'Iron Vault';
+    fixture.componentInstance.partyMembers = [paladinL10];
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('0 ft (Grappled)');
+    expect(text).toContain('Frightened Antidote (Aura of Courage)');
+    expect(component.hasCondition({ ...mockMember, conditions: ['poisoned'] }, 'Poisoned')).toBe(true);
+    expect(component.conditionTone({ ...mockMember, conditions: ['poisoned'] }, 'Poisoned')).toBe('danger');
   });
 });

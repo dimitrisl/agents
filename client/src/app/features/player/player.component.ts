@@ -51,6 +51,7 @@ import {
 } from '../../core/models/roll-prompt';
 import {
   ALL_SKILLS,
+  AUTO_FAIL_STR_DEX_CONDITIONS,
   SkillDefinition,
   abilityCheckModifier,
   abilityModifier,
@@ -59,19 +60,25 @@ import {
   availableHitDice,
   availableHitDieOptions,
   conModifier,
+  DamageMitigationMode,
   describeDmModifiers,
   diceForCast,
   effectiveExhaustionLevel,
+  effectiveSpeed,
+  evaluateConditionEffects,
   exhaustionD20Penalty,
   findSkill,
   formatClassSummary,
   formatModifier,
+  hasConditionAdvantage,
+  hasConditionDisadvantage,
   hasExhaustionDisadvantage,
   hasReliableTalent,
   hasSpellSlotLevel,
   HitDieOption,
   hitDieSize,
   is2024Edition,
+  isAutoFailSave,
   isDeceasedByExhaustion,
   isProficientIn,
   hasExpertiseIn,
@@ -944,7 +951,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   hasCheckDisadvantage(char: CharacterSchema | null | undefined): boolean {
-    return hasExhaustionDisadvantage(char, 'check');
+    return hasExhaustionDisadvantage(char, 'check') || hasConditionDisadvantage(char, 'check');
   }
 
   private applyExhaustionDelta(char: CharacterSchema, nextLevel: number): CharacterSchema {
@@ -1108,6 +1115,24 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
     if (Array.isArray(payload.weapons)) target.weapons = payload.weapons.map((w: any) => ({ ...w }));
     if (Array.isArray(payload.conditions)) target.conditions = [...payload.conditions];
+    if (Array.isArray(payload.damage_resistances)) {
+      target.damage_resistances = [...payload.damage_resistances];
+    }
+    if (Array.isArray(payload.damage_immunities)) {
+      target.damage_immunities = [...payload.damage_immunities];
+    }
+    if (Array.isArray(payload.damage_vulnerabilities)) {
+      target.damage_vulnerabilities = [...payload.damage_vulnerabilities];
+    }
+    if (Array.isArray(payload.derived_damage_resistances)) {
+      target.derived_damage_resistances = [...payload.derived_damage_resistances];
+    }
+    if (Array.isArray(payload.derived_damage_immunities)) {
+      target.derived_damage_immunities = [...payload.derived_damage_immunities];
+    }
+    if (Array.isArray(payload.save_advantages)) {
+      target.save_advantages = [...payload.save_advantages];
+    }
     if (payload.concentrating_on !== undefined) {
       target.concentrating_on = payload.concentrating_on ?? undefined;
     }
@@ -1795,17 +1820,87 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     return roll;
   }
 
+  private resolveEffectiveRoll(
+    char: CharacterSchema | null | undefined,
+    kind: 'attack' | 'check' | 'save' | 'initiative',
+    requestedMode: RollMode,
+    stat = '',
+    extraAutoAdv = false
+  ) {
+    const exhDis = hasExhaustionDisadvantage(char, kind);
+    const condDis = hasConditionDisadvantage(char, kind, stat);
+    const condAdv = hasConditionAdvantage(char, kind);
+    const resolved = resolveRollMode(requestedMode, exhDis || condDis, extraAutoAdv || condAdv);
+    const notes: string[] = [];
+    if (resolved.cancelled) {
+      if (condDis) notes.push('[ADV vs COND DIS → NORMAL]');
+      else if (exhDis) notes.push('[ADV vs EXH DIS → NORMAL]');
+      else notes.push('[COND ADV vs DIS → NORMAL]');
+    }
+    if (kind === 'save' && isAutoFailSave(char, stat)) {
+      notes.push('[AUTO-FAIL CONDITION]');
+    }
+    return { resolved, noteSuffix: notes.length ? ` ${notes.join(' ')}` : '' };
+  }
+
+  private getConditionAutoFailReason(char: CharacterSchema | null | undefined): string {
+    return (
+      evaluateConditionEffects(char)
+        .normalizedConditions.filter((c) => AUTO_FAIL_STR_DEX_CONDITIONS.has(c.toLowerCase()))
+        .join(', ') || 'condition'
+    );
+  }
+
+  private buildAutoFailSaveRoll(
+    char: CharacterSchema | null | undefined,
+    title: string,
+    modifier: number,
+    stat: string,
+    skipBroadcast = false
+  ): DiceRoll {
+    const reason = this.getConditionAutoFailReason(char);
+    const statLabel = (stat || 'Save').toUpperCase();
+    const roll: DiceRoll = {
+      total: 0,
+      expression: 'AUTO-FAIL (Condition)',
+      raw: 0,
+      rolls: [],
+      sides: 20,
+      numDice: 1,
+      modifier,
+      mode: 'normal',
+      isNat20: false,
+      isNat1: false,
+    };
+    this.rollToast.showMessage(
+      title,
+      `Automatically fails ${statLabel} saving throw (${reason}) — Total: 0.`
+    );
+    if (!skipBroadcast && char?.active_campaign) {
+      this.publishSheetRoll({
+        charName: char.char_name,
+        rollLabel: title,
+        rollType: 'save',
+        formula: 'AUTO-FAIL (Condition)',
+        naturalRoll: null,
+        rolls: [],
+        modifier,
+        total: 0,
+        mode: 'normal',
+        isCrit: false,
+        isFumble: false,
+      });
+    }
+    return roll;
+  }
+
   rollSkillCheck(skill: SkillDefinition) {
     const char = this.charState.activeCharacter();
     const autoAdv = skill.name.toLowerCase() === 'athletics' && hasAthleticsAdvantage(char);
-    const resolved = resolveRollMode(
-      this.rollMode,
-      hasExhaustionDisadvantage(char, 'check'),
-      autoAdv
-    );
+    const { resolved, noteSuffix } = this.resolveEffectiveRoll(char, 'check', this.rollMode, skill.ability, autoAdv);
     const reliableMin = isProficientIn(char, skill.name) && hasReliableTalent(char) ? 10 : undefined;
     const noteParts: string[] = [];
-    if (resolved.cancelled) noteParts.push('[ADV vs EXH DIS → NORMAL]');
+    if (noteSuffix.trim()) noteParts.push(noteSuffix.trim());
     if (reliableMin) noteParts.push('[RELIABLE 10+]');
     const note = noteParts.length ? ` ${noteParts.join(' ')}` : '';
     return this.showD20Roll(`🎲 ${skill.name.toUpperCase()} CHECK${note}`, this.getSkillModifier(skill), resolved.mode, {
@@ -1818,9 +1913,8 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
 
-    const resolved = resolveRollMode(this.rollMode, hasExhaustionDisadvantage(char, 'check'));
-    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
-    return this.showD20Roll(`🎲 ${stat} CHECK${note}`, abilityCheckModifier(char, stat), resolved.mode, {
+    const { resolved, noteSuffix } = this.resolveEffectiveRoll(char, 'check', this.rollMode, stat);
+    return this.showD20Roll(`🎲 ${stat} CHECK${noteSuffix}`, abilityCheckModifier(char, stat), resolved.mode, {
       rollType: 'ability',
     });
   }
@@ -1829,9 +1923,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
 
-    const resolved = resolveRollMode(this.rollMode, hasExhaustionDisadvantage(char, 'save'));
-    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
-    return this.showD20Roll(`🛡️ ${stat} SAVING THROW${note}`, savingThrowModifier(char, stat), resolved.mode, {
+    const mod = savingThrowModifier(char, stat);
+    if (isAutoFailSave(char, stat)) {
+      return this.buildAutoFailSaveRoll(char, `🛡️ ${stat} SAVING THROW [AUTO-FAIL CONDITION]`, mod, stat);
+    }
+    const { resolved, noteSuffix } = this.resolveEffectiveRoll(char, 'save', this.rollMode, stat);
+    return this.showD20Roll(`🛡️ ${stat} SAVING THROW${noteSuffix}`, mod, resolved.mode, {
       rollType: 'save',
     });
   }
@@ -1938,13 +2035,14 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char || !char.stats) return;
     const mod = char.initiative_modifier ?? abilityCheckModifier(char, 'DEX');
-    const resolved = resolveRollMode(
+    const { resolved, noteSuffix } = this.resolveEffectiveRoll(
+      char,
+      'initiative',
       this.rollMode,
-      hasExhaustionDisadvantage(char, 'initiative'),
+      'Initiative',
       hasInitiativeAdvantage(char)
     );
-    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
-    const roll = this.showD20Roll(`⚔️ INITIATIVE ROLL${note}`, mod, resolved.mode, { skipBroadcast: true });
+    const roll = this.showD20Roll(`⚔️ INITIATIVE ROLL${noteSuffix}`, mod, resolved.mode, { skipBroadcast: true });
     if (char.active_campaign) {
       this.wsService.sendMessage({
         type: 'roll_result',
@@ -1994,12 +2092,20 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
       norm === 'spell_attack';
     const isInit = norm === 'initiative' || stat.toLowerCase() === 'initiative';
     const isAthletics = norm.includes('skill') && stat.toLowerCase() === 'athletics';
-    const autoAdv = (isInit && hasInitiativeAdvantage(char)) || (isAthletics && hasAthleticsAdvantage(char));
+    const extraAutoAdv = (isInit && hasInitiativeAdvantage(char)) || (isAthletics && hasAthleticsAdvantage(char));
     const kind = isSave ? 'save' : isAttack ? 'attack' : isInit ? 'initiative' : 'check';
-    const resolved = resolveRollMode(mode, hasExhaustionDisadvantage(char, kind), autoAdv);
-    const note = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
+    if (kind === 'save' && isAutoFailSave(char, stat)) {
+      return this.buildAutoFailSaveRoll(
+        char,
+        `${target.title} [AUTO-FAIL CONDITION]`,
+        target.modifier + situationalBonus,
+        stat,
+        true
+      );
+    }
+    const { resolved, noteSuffix } = this.resolveEffectiveRoll(char, kind, mode, stat, extraAutoAdv);
 
-    return this.showD20Roll(`${target.title}${note}`, target.modifier + situationalBonus, resolved.mode, {
+    return this.showD20Roll(`${target.title}${noteSuffix}`, target.modifier + situationalBonus, resolved.mode, {
       skipBroadcast: true,
     });
   }
@@ -2039,6 +2145,18 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   private get activeRollPromptTarget(): RollTarget | null {
     const request = this.activeRollPrompt;
     return request ? this.resolveRollTarget(request.roll_type, request.stat) : null;
+  }
+
+  get activeRollPromptAutoFailReason(): string | null {
+    const request = this.activeRollPrompt;
+    const char = this.charState.activeCharacter();
+    if (!request || !char) return null;
+    const norm = request.roll_type.toLowerCase().replace(/[\s-]+/g, '_');
+    const isSave = norm === 'save' || norm === 'saving_throw' || norm === 'savingthrow';
+    if (isSave && isAutoFailSave(char, request.stat)) {
+      return this.getConditionAutoFailReason(char);
+    }
+    return null;
   }
 
   /**
@@ -2091,7 +2209,12 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const request = this.activeRollPrompt;
     if (!request) return;
 
-    if (this.promptManualRoll !== null && this.promptManualRoll !== undefined && `${this.promptManualRoll}`.trim() !== '') {
+    const activeChar = this.charState.activeCharacter();
+    const normReq = request.roll_type.toLowerCase().replace(/[\s-]+/g, '_');
+    const isSaveReq = normReq === 'save' || normReq === 'saving_throw' || normReq === 'savingthrow';
+    if (isSaveReq && isAutoFailSave(activeChar, request.stat)) {
+      this.rollForRequest(request, this.promptRollMode, this.promptSituationalBonus);
+    } else if (this.promptManualRoll !== null && this.promptManualRoll !== undefined && `${this.promptManualRoll}`.trim() !== '') {
       const raw = Math.max(1, Math.min(20, Number(this.promptManualRoll)));
       const target = this.resolveRollTarget(request.roll_type, request.stat);
       const modifier = (target ? target.modifier : 0) + this.promptSituationalBonus;
@@ -2706,13 +2829,16 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   saveConditions(data: { conditions: string[], concentratingOn: string }) {
     const char = this.charState.activeCharacter();
     if (!char) return;
-    const updated = {
+    const nextBase: CharacterSchema = {
       ...char,
+      base_speed: char.base_speed ?? char.speed,
       conditions: data.conditions,
       concentrating_on: data.concentratingOn
     };
-    this.charState.activeCharacter.set(updated);
-    this.enqueueDebouncedSave(updated);
+    // Optimistically reflect condition speed lock / restoration immediately before PUT responds
+    nextBase.speed = effectiveSpeed(nextBase);
+    this.charState.activeCharacter.set(nextBase);
+    this.enqueueDebouncedSave(nextBase);
     this.showConditionsModal.set(false);
   }
 
@@ -2902,6 +3028,10 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char) return;
     const updated: CharacterSchema = { ...char, ...patch };
+    if (typeof patch.speed === 'number') {
+      updated.base_speed = patch.speed;
+      updated.speed = effectiveSpeed({ ...updated, base_speed: patch.speed, speed: undefined });
+    }
     this.charState.activeCharacter.set(updated);
     this.queueCharSave();
   }
@@ -3110,7 +3240,7 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   hasHeroInitiativeAdvantage(char: CharacterSchema | null | undefined): boolean {
-    return hasInitiativeAdvantage(char);
+    return hasInitiativeAdvantage(char) || hasConditionAdvantage(char, 'initiative');
   }
 
   getPassiveInvestigation(char: CharacterSchema | null | undefined): number {
@@ -3183,6 +3313,21 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  onDamageImmuneApplied(event: { raw: number; label?: string | null; mode?: DamageMitigationMode }) {
+    const typeLabel = event.label ? ` (${event.label})` : '';
+    if (event.mode === 'resist') {
+      this.rollToast.showMessage(
+        '🛡️ DAMAGE RESISTED TO 0',
+        `0 HP damage taken from ${event.raw} incoming damage${typeLabel} (halved, rounded down) — Concentration undisturbed.`
+      );
+      return;
+    }
+    this.rollToast.showMessage(
+      '🛡️ DAMAGE NEGATED (IMMUNE)',
+      `0 HP damage taken from ${event.raw} incoming damage${typeLabel} — Concentration undisturbed.`
+    );
+  }
+
   applyHeal(amount: number) {
     const char = this.charState.activeCharacter();
     if (!char || amount <= 0 || isDeceasedByExhaustion(char)) return;
@@ -3214,14 +3359,11 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const exhPenalty = exhaustionD20Penalty(char);
     const dmSaveBonus = char.dm_modifiers?.saving_throws_bonus ?? 0;
     const deathMod = dmSaveBonus - exhPenalty;
-    const resolved = resolveRollMode(
-      this.rollMode,
-      hasExhaustionDisadvantage(char, 'save')
-    );
+    const { resolved, noteSuffix } = this.resolveEffectiveRoll(char, 'save', this.rollMode, 'Death');
     const roll = this.dice.rollD20(deathMod, resolved.mode);
     const currentSaves = { ...(char.death_saves || { successes: 0, failures: 0 }) };
     let newHp = char.hp_current;
-    const modeTag = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : this.dice.modeLabel(roll.mode);
+    const modeTag = noteSuffix ? noteSuffix : this.dice.modeLabel(roll.mode);
 
     if (roll.raw === 20) {
       this.haptics.critSuccess();
@@ -3271,10 +3413,9 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     const char = this.charState.activeCharacter();
     if (!char) return;
     const saveMod = char.stats ? savingThrowModifier(char, 'CON') : conModifier(char);
-    const resolved = resolveRollMode(this.rollMode, hasExhaustionDisadvantage(char, 'save'));
+    const { resolved, noteSuffix: cancelNote } = this.resolveEffectiveRoll(char, 'save', this.rollMode, 'CON');
     const roll = this.dice.rollD20(saveMod, resolved.mode);
     const dc = this.concentrationDc();
-    const cancelNote = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
 
     if (roll.total >= dc) {
       this.haptics.critSuccess();
@@ -3430,13 +3571,15 @@ export class PlayerComponent implements OnInit, OnDestroy, AfterViewChecked {
     let crit = false;
     if (profile.spellAttack) {
       const attackBonus = parseInt((char.spell_attack_bonus || '+0').replace('+', ''), 10) || 0;
-      const resolvedAtk = resolveRollMode(
+      const { resolved: resolvedAtk, noteSuffix: atkNoteSuffix } = this.resolveEffectiveRoll(
+        char,
+        'attack',
         this.rollMode,
-        hasExhaustionDisadvantage(char, 'attack')
+        'spell'
       );
       const attack = this.dice.rollD20(attackBonus, resolvedAtk.mode);
       crit = attack.raw === 20;
-      const cancelNote = resolvedAtk.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : this.dice.modeLabel(attack.mode);
+      const cancelNote = atkNoteSuffix || this.dice.modeLabel(attack.mode);
       titleExtra = ` · TO HIT ${attack.total}${cancelNote}${crit ? ' (NAT 20!)' : attack.raw === 1 ? ' (NAT 1)' : ''}`;
     } else if (profile.save && !profile.save.halfOnSuccess) {
       titleExtra = ` · ${saveText} SAVE`;

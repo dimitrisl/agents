@@ -37,12 +37,16 @@ import {
   CombatantCondition,
   InitiativeCombatant,
 } from '../../core/models/initiative.model';
-import type { CharacterSchema, DmModifiers } from '../../core/models/character.model';
+import type { CharacterSchema, ClassEntry, DmModifiers, FeatureTrait } from '../../core/models/character.model';
 import { PartyMember } from '../../core/models/party.model';
 import {
   abilityCheckModifier,
   abilityModifier,
+  effectiveSpeed,
+  hasConditionAdvantage,
+  hasConditionDisadvantage,
   hasExhaustionDisadvantage,
+  proficiencyBonusForLevel,
   resolveRollMode,
 } from '../../core/rules';
 import { EncounterStorageService } from '../../core/services/encounter-storage.service';
@@ -111,6 +115,10 @@ interface PartyStatePayload extends PartyStateChanges {
   char_id?: string;
   hp_max?: number;
   hp_temp?: number;
+  race?: string;
+  classes?: ClassEntry[];
+  senses?: string[];
+  features_traits?: FeatureTrait[];
   ac?: number;
   ac_breakdown?: any;
   speed?: number;
@@ -118,6 +126,10 @@ interface PartyStatePayload extends PartyStateChanges {
   stats?: { [key: string]: number };
   initiative_modifier?: number;
   initiative_advantage?: boolean;
+  damage_resistances?: string[];
+  damage_immunities?: string[];
+  damage_vulnerabilities?: string[];
+  save_advantages?: string[];
   level?: number;
   concentrating_on?: string | null;
   death_saves?: { successes: number; failures: number };
@@ -1136,6 +1148,8 @@ export class DmComponent implements OnInit, OnDestroy {
             name: char.char_name || 'Unknown',
             char_class: char.char_class || 'Unknown',
             level: char.char_level || 1,
+            race: char.race,
+            classes: char.classes,
             dnd_edition: char.dnd_edition,
             ruleset_version: char.ruleset_version,
             hp_current: char.hp_current ?? char.hp_max ?? 10,
@@ -1148,6 +1162,12 @@ export class DmComponent implements OnInit, OnDestroy {
             // The sheet has carried conditions all along; the workspace used to
             // throw them away and start every session from a clean hero.
             conditions: char.conditions || [],
+            senses: char.senses || [],
+            features_traits: char.features_traits || [],
+            damage_resistances: char.damage_resistances || [],
+            damage_immunities: char.damage_immunities || [],
+            damage_vulnerabilities: char.damage_vulnerabilities || [],
+            save_advantages: char.save_advantages || [],
             concentrating_on: char.concentrating_on ?? null,
             death_saves: char.death_saves,
             inspiration: !!char.inspiration,
@@ -1598,10 +1618,15 @@ export class DmComponent implements OnInit, OnDestroy {
 
   toggleCondition(member: PartyMember, cond: string) {
     const currentMember = this.partyMembers.find((m) => this.isSameMember(m, member)) || member;
-    const idx = currentMember.conditions.indexOf(cond);
+    const condLow = cond.trim().toLowerCase();
+    const exists = (currentMember.conditions || []).some(
+      (c) => String(c || '').trim().toLowerCase() === condLow
+    );
     let nextConditions: string[];
-    if (idx >= 0) {
-      nextConditions = currentMember.conditions.filter((c) => c !== cond);
+    if (exists) {
+      nextConditions = currentMember.conditions.filter(
+        (c) => String(c || '').trim().toLowerCase() !== condLow
+      );
       member.conditions = nextConditions;
       currentMember.conditions = nextConditions;
       this.dropConditionFromCombatants(currentMember, cond);
@@ -1749,18 +1774,26 @@ export class DmComponent implements OnInit, OnDestroy {
 
   private memberAsRuleSheet(member: PartyMember): CharacterSchema {
     const campEd = this.activeEdition || '2014 Edition';
-    return {
+    const sheet: CharacterSchema = {
       char_name: member.name,
       char_class: member.char_class,
       char_level: member.level,
+      classes: member.classes,
       armor_class: member.ac,
       hp_max: member.hp_max,
       speed: member.speed ?? 30,
-      proficiency_bonus: 2,
-      race: '',
+      proficiency_bonus: proficiencyBonusForLevel(member.level || 1),
+      race: member.race || '',
       background: '',
       dnd_edition: member.dnd_edition || member.ruleset_version || campEd,
       ruleset_version: member.ruleset_version,
+      conditions: member.conditions || [],
+      senses: member.senses || [],
+      features_traits: member.features_traits || [],
+      damage_resistances: member.damage_resistances || [],
+      damage_immunities: member.damage_immunities || [],
+      damage_vulnerabilities: member.damage_vulnerabilities || [],
+      save_advantages: member.save_advantages || [],
       exhaustion_level: member.exhaustion_level ?? 0,
       exhaustion_bypass: member.exhaustion_bypass,
       magic_items_suppressed: member.magic_items_suppressed,
@@ -1776,12 +1809,18 @@ export class DmComponent implements OnInit, OnDestroy {
         CHA: member.stats?.['CHA'] ?? 10,
       },
     };
+    sheet.speed = effectiveSpeed(sheet);
+    return sheet;
   }
 
   quickDmStatRoll(member: PartyMember, stat: string) {
     const sheet = this.memberAsRuleSheet(member);
     const mod = abilityCheckModifier(sheet, stat);
-    const resolved = resolveRollMode('normal', hasExhaustionDisadvantage(sheet, 'check'));
+    const resolved = resolveRollMode(
+      'normal',
+      hasExhaustionDisadvantage(sheet, 'check') || hasConditionDisadvantage(sheet, 'check', stat),
+      hasConditionAdvantage(sheet, 'check')
+    );
     const roll = this.dice.rollD20(mod, resolved.mode);
 
     this.rollToast.showRoll({
@@ -1994,8 +2033,8 @@ export class DmComponent implements OnInit, OnDestroy {
         const mod = member.initiative_modifier ?? abilityCheckModifier(sheet, 'DEX');
         const resolved = resolveRollMode(
           'normal',
-          hasExhaustionDisadvantage(sheet, 'initiative'),
-          !!member.initiative_advantage
+          hasExhaustionDisadvantage(sheet, 'initiative') || hasConditionDisadvantage(sheet, 'initiative'),
+          !!member.initiative_advantage || hasConditionAdvantage(sheet, 'initiative')
         );
         return { ...c, initiative: this.dice.rollD20(mod, resolved.mode).total };
       }
@@ -2348,7 +2387,25 @@ export class DmComponent implements OnInit, OnDestroy {
           ? payload.initiative_advantage
           : member.initiative_advantage,
       level: nextLevel,
+      race: payload.race !== undefined ? payload.race : member.race,
+      classes: Array.isArray(payload.classes) ? payload.classes : member.classes,
+      senses: Array.isArray(payload.senses) ? [...payload.senses] : member.senses,
+      features_traits: Array.isArray(payload.features_traits)
+        ? [...payload.features_traits]
+        : member.features_traits,
       conditions: nextConditions,
+      damage_resistances: Array.isArray(payload.damage_resistances)
+        ? [...payload.damage_resistances]
+        : member.damage_resistances,
+      damage_immunities: Array.isArray(payload.damage_immunities)
+        ? [...payload.damage_immunities]
+        : member.damage_immunities,
+      damage_vulnerabilities: Array.isArray(payload.damage_vulnerabilities)
+        ? [...payload.damage_vulnerabilities]
+        : member.damage_vulnerabilities,
+      save_advantages: Array.isArray(payload.save_advantages)
+        ? [...payload.save_advantages]
+        : member.save_advantages,
       concentrating_on:
         payload.concentrating_on !== undefined ? payload.concentrating_on : member.concentrating_on,
       death_saves:

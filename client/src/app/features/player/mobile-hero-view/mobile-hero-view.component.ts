@@ -13,15 +13,19 @@ import { getSubclassUnlockLevel } from '../../../core/rules/recommendations';
 import {
   abilityCheckModifier,
   describeDmModifiers,
+  effectiveSpeed,
   exhaustionD20Penalty,
   formatClassSummary,
   formatModifier,
   formatSubclassSummary,
+  hasConditionDisadvantage,
   hasExhaustionDisadvantage,
   is2024Edition,
+  isAutoFailSave,
   isDeceasedByExhaustion,
   isSaveProficient,
   savingThrowModifier,
+  speedLockReason,
 } from '../../../core/rules';
 import {
   ForgeBadgeComponent,
@@ -165,11 +169,27 @@ export class MobileHeroViewComponent implements OnChanges {
   }
 
   get hasCheckDisadvantage(): boolean {
-    return hasExhaustionDisadvantage(this.char, 'check');
+    return hasExhaustionDisadvantage(this.char, 'check') || hasConditionDisadvantage(this.char, 'check');
   }
 
   get hasSaveDisadvantage(): boolean {
     return hasExhaustionDisadvantage(this.char, 'save');
+  }
+
+  hasSaveDisadvantageFor(ability: string): boolean {
+    return hasExhaustionDisadvantage(this.char, 'save') || hasConditionDisadvantage(this.char, 'save', ability);
+  }
+
+  isSaveAutoFail(ability: string): boolean {
+    return isAutoFailSave(this.char, ability);
+  }
+
+  get displaySpeed(): number {
+    return effectiveSpeed(this.char);
+  }
+
+  get speedLockText(): string | null {
+    return speedLockReason(this.char);
   }
 
   get deceasedByExhaustion(): boolean {

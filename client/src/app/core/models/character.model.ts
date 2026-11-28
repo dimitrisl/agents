@@ -163,6 +163,12 @@ export interface DmModifiers {
   note?: string;
 }
 
+export interface ClassEntry {
+  class_name: string;
+  level: number;
+  subclass?: string;
+}
+
 export interface CharacterSchema {
   char_id?: string;
   owner_id?: string;
@@ -173,7 +179,7 @@ export interface CharacterSchema {
   char_class: string;
   subclass?: string;
   char_level: number;
-  classes?: { class_name: string; level: number; subclass?: string }[];
+  classes?: ClassEntry[];
   race: string;
   background: string;
   alignment?: string;
@@ -192,6 +198,10 @@ export interface CharacterSchema {
   weapon_proficiencies?: string[];
   senses?: string[];
   damage_resistances?: string[];
+  damage_immunities?: string[];
+  damage_vulnerabilities?: string[];
+  derived_damage_resistances?: string[];
+  derived_damage_immunities?: string[];
   save_advantages?: string[];
   skills?: Record<string, number>;
   skill_proficiencies?: string[];

@@ -227,6 +227,62 @@
         </button>
       </div>
 
+      <!-- Damage Mitigation Mode (Raw / ½ Resist / ×2 Vuln / 0 Immune) + Matched Defenses -->
+      <div class="flex flex-col gap-1.5 rounded-xl bg-tile p-2" data-testid="hp-damage-mitigation">
+        <div class="flex items-center justify-between">
+          <span class="text-micro font-semibold uppercase text-muted">Damage Modifier</span>
+          @if (mitigationMode() !== 'raw' && rawNumpadAmount > 0) {
+            <span class="text-micro font-bold text-accent tabular-nums">
+              {{ rawNumpadAmount }} → {{ adjustedDamageAmount }} HP
+            </span>
+          }
+        </div>
+        <div class="grid grid-cols-4 gap-1" role="group" aria-label="Damage mitigation mode">
+          @for (opt of mitigationModes; track opt.mode) {
+            <button
+              type="button"
+              (click)="selectMitigationMode(opt.mode)"
+              [attr.aria-pressed]="mitigationMode() === opt.mode"
+              [attr.data-testid]="'hp-mitigation-' + opt.mode"
+              class="min-h-8 rounded-lg border px-1.5 py-1 text-micro font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              [ngClass]="
+                mitigationMode() === opt.mode
+                  ? (opt.mode === 'vuln'
+                      ? 'border-red/40 bg-red/15 text-red'
+                      : opt.mode === 'immune'
+                        ? 'border-emerald/40 bg-emerald/15 text-emerald'
+                      : opt.mode === 'resist'
+                        ? 'border-cobalt/40 bg-cobalt/15 text-cobalt'
+                        : 'border-accent/40 bg-accent/15 text-accent')
+                  : 'border-hairline bg-panel text-muted hover:text-ink'
+              "
+            >
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+        @if (defensePills.length > 0) {
+          <div class="flex flex-wrap gap-1 pt-0.5">
+            @for (pill of defensePills; track pill.mode + ':' + pill.label) {
+              <button
+                type="button"
+                (click)="toggleDefensePill(pill)"
+                [attr.aria-pressed]="selectedDefenseKey() === defensePillKey(pill)"
+                [attr.data-testid]="'hp-defense-pill-' + pill.label"
+                class="min-h-7 rounded-md border px-2 py-1 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                [ngClass]="
+                  selectedDefenseKey() === defensePillKey(pill)
+                    ? 'border-accent/40 bg-accent/15 text-accent'
+                    : 'border-hairline bg-panel text-muted hover:text-ink'
+                "
+              >
+                {{ pill.mode === 'immune' ? '🛡️ 0' : pill.mode === 'vuln' ? '⚠️ ×2' : '🛡️ ½' }} {{ pill.label }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+
       <!-- Touch Numpad Grid -->
       <div class="grid grid-cols-3 gap-2">
         <button
@@ -266,10 +322,13 @@
         <button
           type="button"
           (click)="executeDamage()"
+          data-testid="hp-execute-damage"
           class="h-12 min-h-12 rounded-xl bg-crimson/20 hover:bg-crimson/30 border border-crimson/40 text-crimson font-bold text-sm transition-colors flex flex-col items-center justify-center"
         >
           <span>🩸 Damage</span>
-          <span class="text-micro opacity-80">-{{ numpadValue() }}</span>
+          <span class="text-micro opacity-80">
+            -{{ adjustedDamageAmount }}
+          </span>
         </button>
         <button
           type="button"

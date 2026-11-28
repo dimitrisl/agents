@@ -1393,6 +1393,42 @@ def hydrate_character_spellcasting_and_resources(
         homebrew_content=homebrew_content,
         preserve_existing_on_miss=(homebrew_content is None),
     )
+
+    from backend.services.condition_rules import (
+        compute_damage_defense_state,
+        has_speed_zero_condition,
+    )
+
+    race_meta = (
+        repo.get_race_data(str(char_data.get("race")), edition)
+        if char_data.get("race") and hasattr(repo, "get_race_data")
+        else None
+    )
+    derived_res, derived_imm, derived_vuln, src_res, src_imm = compute_damage_defense_state(
+        char_data, race_meta=race_meta, edition=edition
+    )
+    char_data["damage_resistances"] = derived_res
+    char_data["damage_immunities"] = derived_imm
+    char_data["damage_vulnerabilities"] = derived_vuln
+    char_data["derived_damage_resistances"] = src_res
+    char_data["derived_damage_immunities"] = src_imm
+
+    is_2024_hyd = "2024" in str(edition or char_data.get("ruleset_version") or "")
+    exh_bypass_hyd = bool(char_data.get("exhaustion_bypass", False))
+    eff_exh_hyd = (
+        0 if exh_bypass_hyd else max(0, min(6, int(char_data.get("exhaustion_level", 0) or 0)))
+    )
+    if has_speed_zero_condition(char_data.get("conditions"), is_2024_hyd) or (
+        eff_exh_hyd >= 6 or (not is_2024_hyd and eff_exh_hyd >= 5)
+    ):
+        if char_data.get("base_speed") is None:
+            raw_spd = char_data.get("speed")
+            if raw_spd in (None, 0):
+                inferred = race_meta.get("speed") if isinstance(race_meta, dict) else None
+                raw_spd = inferred if isinstance(inferred, int) and inferred > 0 else 30
+            char_data["base_speed"] = raw_spd
+        char_data["speed"] = 0
+
     return char_data
 
 
@@ -2327,13 +2363,34 @@ def sync_character_stats(
         for k in ["STR", "DEX", "CON", "INT", "WIS", "CHA"]
     }
 
+    from backend.services.condition_rules import (
+        compute_damage_defense_state,
+        has_speed_zero_condition,
+    )
+
+    is_2024_eff = bool(is_2024 or "2024" in str(char_data.get("ruleset_version") or ""))
+    exh_bypass_pre = bool(char_data.get("exhaustion_bypass", False))
+    eff_exh_pre = (
+        0 if exh_bypass_pre else max(0, min(6, int(char_data.get("exhaustion_level", 0) or 0)))
+    )
     base_speed = char_data.get("base_speed")
     if base_speed is None:
         raw_speed = char_data.get("speed")
-        if raw_speed in (None, 30) and char_data.get("race"):
-            race_info = repo.get_race_data(str(char_data.get("race")), edition)
+        speed_is_zero_locked = raw_speed == 0 and (
+            has_speed_zero_condition(char_data.get("conditions"), is_2024_eff)
+            or eff_exh_pre >= 6
+            or (not is_2024_eff and eff_exh_pre >= 5)
+        )
+        if raw_speed in (None, 30) or speed_is_zero_locked:
+            race_info = (
+                repo.get_race_data(str(char_data.get("race")), edition)
+                if char_data.get("race")
+                else None
+            )
             if isinstance(race_info, dict) and isinstance(race_info.get("speed"), int):
                 raw_speed = race_info["speed"]
+            elif speed_is_zero_locked:
+                raw_speed = 30
         base_speed = raw_speed if isinstance(raw_speed, int) else 30
         char_data["base_speed"] = base_speed
 
@@ -2434,6 +2491,11 @@ def sync_character_stats(
         char_data["speed"] = raw_speed // 2
     else:
         char_data["speed"] = raw_speed
+
+    # Non-destructive movement lock: Grappled/Restrained/Paralyzed/Unconscious/Petrified (+ Stunned in 2014)
+    # set derived `speed` to 0 while keeping `base_speed` untouched for clean restoration.
+    if has_speed_zero_condition(char_data.get("conditions"), is_2024_eff):
+        char_data["speed"] = 0
     char_data["global_attack_bonus"] = equip_atk_bonus
     char_data["global_damage_bonus"] = equip_dmg_bonus
     char_data["initiative_bonus"] = equip_init_bonus + dm_init_bonus
@@ -3538,16 +3600,11 @@ def sync_character_stats(
         # E. (Removed) Eldritch Knight / Arcane Trickster Cantrip Limit
         # This was flawed as it did not account for racial cantrips (e.g. High Elf) or feats (Magic Initiate)
 
-    # F. Senses, Damage Resistances, Save Advantages (Racial + Class/Subclass traits)
+    # Senses & Save Advantages (Racial + Class/Subclass traits), plus 2014/2024 Damage Defenses
     race_name_for_traits = str(char_data.get("race") or "").strip()
     race_meta = repo.get_race_data(race_name_for_traits, edition) if race_name_for_traits else None
     senses_list = [
         str(s).strip() for s in ((race_meta or {}).get("senses") or []) if str(s).strip()
-    ]
-    resistances_list = [
-        str(r).strip()
-        for r in ((race_meta or {}).get("damage_resistances") or [])
-        if str(r).strip()
     ]
     save_advs = [
         str(a).strip() for a in ((race_meta or {}).get("save_advantages") or []) if str(a).strip()
@@ -3557,7 +3614,6 @@ def sync_character_stats(
 
     for f in ft_entries:
         fn = str((f.get("name") if isinstance(f, dict) else f) or "").strip().lower()
-        fd = str((f.get("description") if isinstance(f, dict) else "") or "").strip().lower()
         if "blind fighting" in fn and "Blindsight 10 ft." not in senses_list:
             senses_list.append("Blindsight 10 ft.")
         if "devil's sight" in fn and "Devil's Sight 120 ft." not in senses_list:
@@ -3567,21 +3623,6 @@ def sync_character_stats(
         ):
             senses_list = [s for s in senses_list if "darkvision 60" not in s.lower()]
             senses_list.append("Darkvision 120 ft.")
-        if "soul of the forge" in fn or "infernal constitution" in fn:
-            if "Fire" not in resistances_list:
-                resistances_list.append("Fire")
-        if "infernal constitution" in fn:
-            for elem in ("Cold", "Poison"):
-                if elem not in resistances_list:
-                    resistances_list.append(elem)
-        if "radiant soul" in fn and "Radiant" not in resistances_list:
-            resistances_list.append("Radiant")
-        if "necrotic husk" in fn and "Necrotic" not in resistances_list:
-            resistances_list.append("Necrotic")
-        if "inured to undeath" in fn and "Necrotic" not in resistances_list:
-            resistances_list.append("Necrotic")
-        if "spell resistance" in fn and "Spell Damage (Abjurer)" not in resistances_list:
-            resistances_list.append("Spell Damage (Abjurer)")
         if "danger sense" in fn:
             adv_txt = "Advantage on DEX saving throws vs visible effects (Danger Sense)"
             if adv_txt not in save_advs:
@@ -3594,35 +3635,22 @@ def sync_character_stats(
             adv_txt = "Immune to Charmed within 10 ft aura (Aura of Devotion)"
             if adv_txt not in save_advs:
                 save_advs.append(adv_txt)
+        if "aura of courage" in fn:
+            adv_txt = "Immune to Frightened within aura (Aura of Courage)"
+            if adv_txt not in save_advs:
+                save_advs.append(adv_txt)
+        if "brave" in fn and (
+            fn == "brave"
+            or "frightened"
+            in str((f.get("description") if isinstance(f, dict) else "") or "").lower()
+        ):
+            adv_txt = "Advantage on saving throws against being Frightened (Brave)"
+            if adv_txt not in save_advs:
+                save_advs.append(adv_txt)
         if "war caster" in fn or "eldritch mind" in fn:
             adv_txt = "Advantage on CON saves to maintain Concentration"
             if adv_txt not in save_advs:
                 save_advs.append(adv_txt)
-        # Resolve Draconic Ancestry elemental resistance cleanly when named in description
-        if "draconic ancestry" in fn:
-            for elem_word, res_label in (
-                ("fire", "Fire"),
-                ("cold", "Cold"),
-                ("lightning", "Lightning"),
-                ("acid", "Acid"),
-                ("poison", "Poison"),
-            ):
-                if elem_word in fd:
-                    resistances_list = [
-                        res_label if "draconic ancestry element" in r.lower() else r
-                        for r in resistances_list
-                    ]
-                    if res_label not in resistances_list:
-                        resistances_list.append(res_label)
-                    break
-
-    # Suppress unresolved ancestral placeholder strings when no specific damage type is chosen
-    resistances_list = [
-        r
-        for r in resistances_list
-        if "draconic ancestry element" not in r.lower()
-        and "fiendish legacy element" not in r.lower()
-    ]
 
     # Gloom Stalker Umbral Sight runs after racial senses and Eyes of the Dark so 120ft / 60ft upgrade cleanly
     has_gloom_umbral = any(
@@ -3646,8 +3674,15 @@ def sync_character_stats(
         elif not any("darkvision" in s.lower() for s in senses_list):
             senses_list.append("Darkvision 60 ft.")
 
+    derived_res, derived_imm, derived_vuln, src_res, src_imm = compute_damage_defense_state(
+        char_data, race_meta=race_meta, edition=edition
+    )
     char_data["senses"] = list(dict.fromkeys(senses_list))
-    char_data["damage_resistances"] = list(dict.fromkeys(resistances_list))
+    char_data["damage_resistances"] = derived_res
+    char_data["damage_immunities"] = derived_imm
+    char_data["damage_vulnerabilities"] = derived_vuln
+    char_data["derived_damage_resistances"] = src_res
+    char_data["derived_damage_immunities"] = src_imm
     char_data["save_advantages"] = list(dict.fromkeys(save_advs))
 
     # G. Class & racial resource pools (Sorcery Points, Ki/Focus, Rage, Breath Weapon, ...)

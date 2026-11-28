@@ -4,13 +4,17 @@ import { FormsModule } from '@angular/forms';
 import type { CharacterSchema } from '../../../core/models/character.model';
 import { getSubclassUnlockLevel } from '../../../core/rules/recommendations';
 import {
+  DamageMitigationMode,
   describeDmModifiers,
+  effectiveSpeed,
   exhaustionD20Penalty,
   formatClassSummary,
   formatSubclassSummary,
+  hasConditionAdvantage,
   hasInitiativeAdvantage,
   is2024Edition,
   isDeceasedByExhaustion,
+  speedLockReason,
 } from '../../../core/rules';
 import {
   ForgeBadgeComponent,
@@ -52,7 +56,15 @@ export class CharacterOverviewCardComponent implements OnChanges {
   imageLoadError = false;
 
   get initiativeAdvantage(): boolean {
-    return hasInitiativeAdvantage(this.char);
+    return hasInitiativeAdvantage(this.char) || hasConditionAdvantage(this.char, 'initiative');
+  }
+
+  get derivedSpeed(): number {
+    return effectiveSpeed(this.char);
+  }
+
+  get derivedSpeedLockReason(): string | null {
+    return speedLockReason(this.char);
   }
 
   get deceasedByExhaustion(): boolean {
@@ -91,12 +103,24 @@ export class CharacterOverviewCardComponent implements OnChanges {
     return `Exhaustion ${lvl}/6: ${effects.join(' · ')}`;
   }
 
+  onBaseSpeedChange(val: number): void {
+    if (!this.char) return;
+    const numeric = Math.max(0, Math.round(Number(val) || 0));
+    this.char.base_speed = numeric;
+    this.char.speed = effectiveSpeed({ ...this.char, base_speed: numeric, speed: undefined });
+  }
+
   @Output() portrait = new EventEmitter<void>();
   @Output() hpChange = new EventEmitter<number>();
   @Output() tempChange = new EventEmitter<number>();
   @Output() deathSaveChange = new EventEmitter<{ type: 'successes' | 'failures'; value: number }>();
   @Output() rollDeathSave = new EventEmitter<void>();
   @Output() applyDamage = new EventEmitter<number>();
+  @Output() damageImmuneApplied = new EventEmitter<{
+    raw: number;
+    label?: string | null;
+    mode?: DamageMitigationMode;
+  }>();
   @Output() applyHeal = new EventEmitter<number>();
   @Output() setTempHp = new EventEmitter<number>();
   @Output() manageConditions = new EventEmitter<void>();

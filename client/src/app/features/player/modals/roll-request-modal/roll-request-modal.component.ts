@@ -40,6 +40,7 @@ export class RollRequestModalComponent implements OnChanges {
   @Input() secondsRemaining = 0;
   /** How many more requests are waiting behind this one. */
   @Input() queuedCount = 0;
+  @Input() autoFailReason: string | null = null;
   @Input() manualRoll: number | null = null;
 
   @Output() openChange = new EventEmitter<boolean>();
