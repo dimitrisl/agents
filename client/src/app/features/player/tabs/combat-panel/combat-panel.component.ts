@@ -59,6 +59,8 @@ import {
   effectiveWeaponUnitWeightLb,
   EncumbranceSummary,
   exhaustionD20Penalty,
+  hasConditionAdvantage,
+  hasConditionDisadvantage,
   hasExhaustionDisadvantage,
   maxAttunementSlots,
   recoverExpendedAmmo,
@@ -757,14 +759,20 @@ export class CombatPanelComponent implements OnInit, OnChanges, OnDestroy {
       }
     }
 
-    const resolved = resolveRollMode(
-      this.rollMode,
-      hasExhaustionDisadvantage(this.char, 'attack')
-    );
+    const hasExhDis = hasExhaustionDisadvantage(this.char, 'attack');
+    const hasCondDis = hasConditionDisadvantage(this.char, 'attack');
+    const hasCondAdv = hasConditionAdvantage(this.char, 'attack');
+    const resolved = resolveRollMode(this.rollMode, hasExhDis || hasCondDis, hasCondAdv);
     const roll = this.dice.rollD20(this.attackBonus(weapon), resolved.mode);
     const isCrit = roll.raw >= this.profile.critThreshold;
     const critNote = isCrit && !roll.isNat20 ? ' — CRITICAL' : '';
-    const cancelNote = resolved.cancelled ? ' [ADV vs EXH DIS → NORMAL]' : '';
+    const cancelNote = resolved.cancelled
+      ? hasCondDis
+        ? ' [ADV vs COND DIS → NORMAL]'
+        : hasExhDis
+          ? ' [ADV vs EXH DIS → NORMAL]'
+          : ' [COND ADV vs DIS → NORMAL]'
+      : '';
 
     this.rollToast.showRoll({
       title: `⚔️ ${weapon.name.toUpperCase()} ATTACK${this.dice.modeLabel(roll.mode)}${cancelNote}${critNote}`,

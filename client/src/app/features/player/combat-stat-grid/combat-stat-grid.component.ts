@@ -17,7 +17,13 @@ export class CombatStatGridComponent {
   @Input() acBreakdown?: AcBreakdown | null;
   @Input() proficiencyBonus = 0;
   @Input() speed = 0;
+  @Input() effectiveSpeedValue?: number;
+  @Input() speedLockReason?: string | null;
   @Input() heavyArmorSpeedPenalty = 0;
+
+  get displaySpeed(): number {
+    return this.effectiveSpeedValue !== undefined ? this.effectiveSpeedValue : this.speed;
+  }
   @Input() passivePerception = 10;
   @Input() initiativeModifier?: number;
   @Input() initiativeAdvantage = false;

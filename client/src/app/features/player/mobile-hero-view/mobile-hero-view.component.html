@@ -115,7 +115,7 @@
                 min="0"
                 max="300"
                 #spdInput
-                [value]="char.speed"
+                [value]="char.base_speed ?? char.speed"
                 (change)="onNumberCommit('speed', spdInput.value, 0, 300, spdInput)"
                 placeholder="Speed (ft)"
                 aria-label="Speed"
@@ -238,7 +238,7 @@
           Ability Checks · Tap to Roll
         </h3>
         @if (hasCheckDisadvantage) {
-          <forge-badge tone="danger" size="sm" title="Disadvantage from 2014 Exhaustion">DIS</forge-badge>
+          <forge-badge tone="danger" size="sm" title="Disadvantage from Exhaustion or active condition">DIS</forge-badge>
         }
       </div>
 
@@ -318,6 +318,11 @@
               <span class="truncate text-label font-semibold" [class.text-ink]="isProficientSave(entry.key)">
                 {{ entry.key }}
               </span>
+              @if (isSaveAutoFail(entry.key)) {
+                <forge-badge tone="danger" size="sm">AUTO-FAIL</forge-badge>
+              } @else if (hasSaveDisadvantageFor(entry.key)) {
+                <forge-badge tone="danger" size="sm">DIS</forge-badge>
+              }
             </span>
             <span
               class="shrink-0 text-body font-bold tabular-nums"
@@ -382,10 +387,15 @@
         </div>
         <div class="flex flex-col items-center px-2 py-3 text-center">
           <span class="text-micro font-semibold uppercase text-muted">Speed</span>
-          <span class="mt-1 text-metric font-bold leading-none tabular-nums text-ink">
-            {{ char.speed }}<span class="ml-0.5 text-label font-semibold text-muted">ft</span>
+          <span
+            class="mt-1 text-metric font-bold leading-none tabular-nums"
+            [ngClass]="speedLockText ? 'text-red' : 'text-ink'"
+          >
+            {{ displaySpeed }}<span class="ml-0.5 text-label font-semibold text-muted">ft</span>
           </span>
-          @if ((char.heavy_armor_speed_penalty ?? 0) > 0) {
+          @if (speedLockText) {
+            <span class="mt-0.5 max-w-full truncate px-1 text-micro font-semibold text-red">{{ speedLockText }}</span>
+          } @else if ((char.heavy_armor_speed_penalty ?? 0) > 0) {
             <span class="mt-0.5 text-micro font-semibold text-red">-{{ char.heavy_armor_speed_penalty }}ft STR</span>
           }
         </div>
@@ -432,13 +442,19 @@
         }
       </div>
 
-      <!-- Damage Resistances -->
+      <!-- Damage Resistances, Immunities & Vulnerabilities -->
       <div class="px-4 py-3">
-        <p class="text-micro font-semibold uppercase text-muted">Damage Resistances &amp; Immunities</p>
-        @if ((char.damage_resistances || []).length > 0) {
+        <p class="text-micro font-semibold uppercase text-muted">Damage Resistances, Immunities &amp; Vulnerabilities</p>
+        @if ((char.damage_resistances || []).length > 0 || (char.damage_immunities || []).length > 0 || (char.damage_vulnerabilities || []).length > 0) {
           <div class="mt-2 flex flex-wrap gap-1.5">
             @for (res of char.damage_resistances || []; track res) {
-              <forge-badge tone="accent" size="sm">🛡️ {{ res }}</forge-badge>
+              <forge-badge tone="accent" size="sm">🛡️ Resist: {{ res }}</forge-badge>
+            }
+            @for (imm of char.damage_immunities || []; track imm) {
+              <forge-badge tone="success" size="sm">🛡️ Immune: {{ imm }}</forge-badge>
+            }
+            @for (vuln of char.damage_vulnerabilities || []; track vuln) {
+              <forge-badge tone="danger" size="sm">⚠️ Vuln: {{ vuln }}</forge-badge>
             }
           </div>
         } @else {

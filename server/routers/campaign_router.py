@@ -433,6 +433,25 @@ def _roll_in_secret(char: Optional[dict], roll_type: str, stat: str) -> Dict[str
                 is_2024 and has_remarkable_athlete(char, edition=edition)
             )
 
+        from backend.services.condition_rules import evaluate_condition_roll_mode
+
+        cond_adv, cond_dis, auto_fail = evaluate_condition_roll_mode(
+            char, roll_type, stat, edition=edition
+        )
+        if auto_fail:
+            return {
+                "total": 0,
+                "expression": "AUTO-FAIL (Condition)",
+                "raw": 1,
+                "rolls": [],
+                "modifier": modifier,
+                "mode": "normal",
+                "situational_bonus": 0,
+                "auto_fail": True,
+            }
+        has_adv = has_adv or cond_adv
+        has_dis = has_dis or cond_dis
+
     outcome = roll_dice(f"1d20{modifier:+d}", advantage=has_adv, disadvantage=has_dis)
     raw = outcome["raw_result"]
     effective_mode = (
@@ -645,13 +664,15 @@ async def get_campaign_party(
     party_members = []
     owner_ids = set()
     from backend.repositories.rules_repository import RulesRepository
-    from backend.services.inventory_service import sync_character_inventory
+    from backend.services.stats_service import hydrate_character_spellcasting_and_resources
 
     repo = RulesRepository()
     homebrew_items = await _load_campaign_homebrew(db, name)
     async for char in cursor:
         char.pop("_id", None)
-        sync_character_inventory(char, repo=repo, homebrew_content=homebrew_items)
+        hydrate_character_spellcasting_and_resources(
+            char, repo=repo, homebrew_content=homebrew_items
+        )
         party_members.append(char)
         if char.get("owner_id"):
             owner_ids.add(char.get("owner_id"))
@@ -726,6 +747,12 @@ _SYNCED_CHAR_FIELDS = (
     "carrying_capacity_lb",
     "encumbrance_status",
     "weight_breakdown",
+    "damage_resistances",
+    "damage_immunities",
+    "damage_vulnerabilities",
+    "derived_damage_resistances",
+    "derived_damage_immunities",
+    "save_advantages",
 )
 
 
@@ -815,6 +842,7 @@ async def update_party_member_state(
     needs_stat_sync = any(
         val is not None
         for val in (
+            payload.conditions,
             payload.exhaustion_level,
             payload.exhaustion_bypass,
             payload.magic_items_suppressed,

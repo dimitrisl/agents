@@ -70,11 +70,16 @@
       [temp]="char.hp_temp ?? 0"
       [deathSaves]="char.death_saves"
       [isDeceasedByExhaustion]="deceasedByExhaustion"
+      [damageResistances]="char.damage_resistances || []"
+      [damageImmunities]="char.damage_immunities || []"
+      [damageVulnerabilities]="char.damage_vulnerabilities || []"
+      [activeConditions]="char.conditions || []"
       (hpChange)="hpChange.emit($event)"
       (tempChange)="tempChange.emit($event)"
       (deathSaveChange)="deathSaveChange.emit($event)"
       (rollDeathSave)="rollDeathSave.emit()"
       (applyDamage)="applyDamage.emit($event)"
+      (damageImmuneApplied)="damageImmuneApplied.emit($event)"
       (applyHeal)="applyHeal.emit($event)"
       (setTempHp)="setTempHp.emit($event)"
     ></app-hit-points-control>
@@ -151,6 +156,26 @@
           </forge-badge>
         }
 
+        @if ((char.damage_immunities || []).length > 0) {
+          <forge-badge
+            tone="success"
+            class="min-h-7 h-auto max-w-full whitespace-normal py-1 text-left"
+            [title]="'Damage Immunities: ' + char.damage_immunities!.join(', ')"
+          >
+            🛡️ Immune: {{ char.damage_immunities!.join(', ') }}
+          </forge-badge>
+        }
+
+        @if ((char.damage_vulnerabilities || []).length > 0) {
+          <forge-badge
+            tone="danger"
+            class="min-h-7 h-auto max-w-full whitespace-normal py-1 text-left"
+            [title]="'Damage Vulnerabilities: ' + char.damage_vulnerabilities!.join(', ')"
+          >
+            ⚠️ Vuln: {{ char.damage_vulnerabilities!.join(', ') }}
+          </forge-badge>
+        }
+
         @if ((char.save_advantages || []).length > 0) {
           <forge-badge
             tone="muted"
@@ -185,9 +210,11 @@
       [acBreakdown]="char.ac_breakdown"
       (armorClassChange)="char.armor_class = $event"
       [proficiencyBonus]="char.proficiency_bonus"
-      [speed]="char.speed"
+      [speed]="char.base_speed ?? char.speed"
+      [effectiveSpeedValue]="derivedSpeed"
+      [speedLockReason]="derivedSpeedLockReason"
       [heavyArmorSpeedPenalty]="char.heavy_armor_speed_penalty ?? 0"
-      (speedChange)="char.speed = $event"
+      (speedChange)="onBaseSpeedChange($event)"
       [passivePerception]="passivePerception"
       [initiativeModifier]="char.initiative_modifier"
       [initiativeAdvantage]="initiativeAdvantage"

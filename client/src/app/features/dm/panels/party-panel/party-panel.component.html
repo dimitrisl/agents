@@ -166,17 +166,7 @@
                 }
               </span>
             </div>
-            @if (
-              member.inspiration ||
-              (member.exhaustion_level ?? 0) > 0 ||
-              member.magic_items_suppressed ||
-              dmModifierSummary(member).length > 0 ||
-              member.dm_short_rest_unlocked ||
-              member.dm_long_rest_unlocked ||
-              member.dm_level_up_unlocked ||
-              member.concentrating_on ||
-              (member.hp_current <= 0 && member.death_saves)
-            ) {
+            @if (hasStatusBadges(member)) {
               <div class="mt-1.5 flex flex-wrap gap-1.5">
                 @if (member.inspiration) {
                   <forge-badge tone="accent" size="sm">✨ Inspired</forge-badge>
@@ -207,6 +197,14 @@
                 }
                 @if (member.concentrating_on) {
                   <forge-badge tone="accent" size="sm">🧠 {{ member.concentrating_on }}</forge-badge>
+                }
+                @if (speedLock(member); as sLock) {
+                  <forge-badge tone="danger" size="sm" [title]="'Walking speed reduced to 0 ft while ' + sLock">🦶 0 ft ({{ sLock }})</forge-badge>
+                }
+                @for (anti of conditionAntidotes(member); track anti.condition + anti.source) {
+                  <forge-badge tone="accent" size="sm" [title]="anti.source + ': ' + anti.detail">
+                    🛡️ {{ anti.condition }} Antidote ({{ anti.source }})
+                  </forge-badge>
                 }
                 @if (member.hp_current <= 0 && member.death_saves && !isDeceasedByExhaustion(member)) {
                   <forge-badge tone="danger" size="sm">
@@ -472,12 +470,12 @@
                   [interactive]="true"
                   role="switch"
                   tabindex="0"
-                  [attr.aria-checked]="member.conditions.includes(condition)"
+                  [attr.aria-checked]="hasCondition(member, condition)"
                   (click)="toggleCondition.emit({ member, condition })"
                   (keydown.enter)="toggleCondition.emit({ member, condition })"
                   (keydown.space)="$event.preventDefault(); toggleCondition.emit({ member, condition })"
                 >
-                  {{ member.conditions.includes(condition) ? '● ' : '' }}{{ condition }}
+                  {{ hasCondition(member, condition) ? '● ' : '' }}{{ condition }}
                 </forge-badge>
               } @else {
                 <forge-badge

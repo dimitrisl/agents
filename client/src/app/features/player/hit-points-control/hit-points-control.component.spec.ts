@@ -97,4 +97,70 @@ describe('HitPointsControlComponent', () => {
     expect(tempSpy).not.toHaveBeenCalled();
     expect(rollSpy).not.toHaveBeenCalled();
   });
+
+  it('supports Raw / ½ Resist / ×2 Vuln / 0 Immune mitigation and matched defense pills', () => {
+    fixture.componentRef.setInput('damageResistances', ['Fire']);
+    fixture.componentRef.setInput('damageImmunities', ['Poison']);
+    fixture.componentRef.setInput('damageVulnerabilities', ['Cold']);
+    fixture.detectChanges();
+
+    const damageSpy = jest.spyOn(component.applyDamage, 'emit');
+    const immuneSpy = jest.spyOn(component.damageImmuneApplied, 'emit');
+
+    // Resistance halves damage rounding down (25 -> 12)
+    component.openQuickPad(25);
+    fixture.detectChanges();
+    (document.querySelector('[data-testid="hp-defense-pill-Fire"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(component.adjustedDamageAmount).toBe(12);
+    component.executeDamage();
+    expect(damageSpy).toHaveBeenCalledWith(12);
+
+    // Vulnerability doubles damage (15 -> 30)
+    component.openQuickPad(15);
+    fixture.detectChanges();
+    (document.querySelector('[data-testid="hp-defense-pill-Cold"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(component.adjustedDamageAmount).toBe(30);
+    component.executeDamage();
+    expect(damageSpy).toHaveBeenCalledWith(30);
+
+    // Immunity emits damageImmuneApplied without applying HP loss
+    damageSpy.mockClear();
+    component.openQuickPad(18);
+    fixture.detectChanges();
+    (document.querySelector('[data-testid="hp-defense-pill-Poison"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(component.adjustedDamageAmount).toBe(0);
+    component.executeDamage();
+    expect(damageSpy).not.toHaveBeenCalled();
+    expect(immuneSpy).toHaveBeenCalledWith({ raw: 18, label: 'Poison', mode: 'immune' });
+
+    // Resisted 1 damage rounding down to 0 emits resist mode without firing immune copy
+    immuneSpy.mockClear();
+    component.openQuickPad(1);
+    fixture.detectChanges();
+    (document.querySelector('[data-testid="hp-defense-pill-Fire"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    component.executeDamage();
+    expect(immuneSpy).toHaveBeenCalledWith({ raw: 1, label: 'Fire', mode: 'resist' });
+
+    // Same-type Resist + Vulnerability pills stay distinct, and Petrified exposes Petrified (All)
+    fixture.componentRef.setInput('damageResistances', ['Acid']);
+    fixture.componentRef.setInput('damageVulnerabilities', ['Acid']);
+    fixture.componentRef.setInput('activeConditions', ['Petrified']);
+    fixture.detectChanges();
+    component.openQuickPad(20);
+    fixture.detectChanges();
+    const acidPills = Array.from(document.querySelectorAll('[data-testid="hp-defense-pill-Acid"]')) as HTMLButtonElement[];
+    expect(acidPills.length).toBe(2);
+    acidPills[0].click(); // vuln Acid
+    fixture.detectChanges();
+    expect(component.mitigationMode()).toBe('vuln');
+    acidPills[1].click(); // resist Acid (switches instead of toggling off!)
+    fixture.detectChanges();
+    expect(component.mitigationMode()).toBe('resist');
+    const petrifiedPill = document.querySelector('[data-testid="hp-defense-pill-Petrified (All)"]') as HTMLButtonElement;
+    expect(petrifiedPill).toBeTruthy();
+  });
 });

@@ -30,6 +30,7 @@ tests/
 ├── test_pwa_and_health_267.py        # Ticket #267 GET /api/v1/health (200/503 without secret leakage + @limiter.exempt), PWA manifest/PNG icons & ngsw-config rules-only dataGroup safety invariants, and Docker/Nginx production configuration checks
 ├── test_inventory_encumbrance_262.py # Ticket #262 Ammunition schema coercion (0 vs None), string/fraction weapon & catalog weight resolution, coin weight (50/lb), Bag of Holding stashing, 2014/2024 Carrying Capacity (Powerful Build, Brawny, Bear Aspect), and /characters CRUD + Athas suppression tests
 ├── test_story_scenes_288.py        # Ticket #288 Story Scenes card URL safety, 2014/2024 DM CRUD & RBAC isolation, targeted WS reveal/dismiss routing without dm_notes leak, entity-shared asset orphan preservation, and campaign cascade deletion
+├── test_conditions_and_defenses_275.py # Ticket #275 Condition mechanics (2014 vs 2024 Invisible Init ADV & Incapacitated Init DIS, AUTO-FAIL STR/DEX short-circuiting), advisory Blindsight/Truesight countermeasures, non-destructive speed=0 locks & GET hydration preserving base_speed, Purity of Body vs Self-Restoration & Nature's Ward / Aura of Courage / Brave / Stout Resilience / Fey Ancestry antidotes & defenses, and secret DM roll mode integration
 ├── test_mechanics*.py                # AC math, spell slots, saving throws, and conditions
 ├── test_dnd_rules_audit_fixes*.py    # 2014 vs. 2024 rule audit verifications
 ├── test_audit_critical_p0_p1_fixes.py # Regression suite for 17 code review & security audit fixes

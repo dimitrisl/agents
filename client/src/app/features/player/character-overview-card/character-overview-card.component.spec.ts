@@ -76,4 +76,25 @@ describe('CharacterOverviewCardComponent', () => {
     expect(resistBadge?.className).toContain('min-h-7');
     expect(resistBadge?.className).toContain('whitespace-normal');
   });
+
+  it('renders damage immunities, vulnerabilities, 2024 Invisible init ADV, and non-destructive Grappled 0 ft speed', () => {
+    fixture.componentRef.setInput('char', {
+      ...baseChar,
+      dnd_edition: '2024 Revision (5.5e)',
+      base_speed: 30,
+      speed: 30,
+      heavy_armor_speed_penalty: 0,
+      damage_immunities: ['Poison'],
+      damage_vulnerabilities: ['Fire'],
+      conditions: ['Invisible', 'Grappled'],
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).toContain('Immune: Poison');
+    expect(text).toContain('Vuln: Fire');
+    expect(text).toContain('0ft');
+    expect(text).toContain('Grappled');
+    expect(component.initiativeAdvantage).toBe(true);
+  });
 });

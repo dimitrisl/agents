@@ -479,6 +479,116 @@ describe('PlayerComponent — DM roll requests', () => {
       expect(charState.activeCharacter()!.conditions).toEqual(['Stunned']);
     });
 
+    it('cancels Advantage with Poisoned condition via resolveRollMode, grants 2024 Invisible Initiative ADV, and skips Concentration check on 0 immune damage', () => {
+      const charState = TestBed.inject(CharacterStateService);
+      const dice = TestBed.inject(DiceService);
+      const rollSpy = jest.spyOn(dice, 'rollD20');
+
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: undefined,
+        dnd_edition: '2024 Revision (5.5e)',
+        conditions: ['Poisoned'],
+        base_speed: 30,
+        speed: 30,
+        concentrating_on: 'Bless',
+      });
+      component.rollMode = 'advantage';
+      component.rollAbilityCheck('STR');
+      expect(rollSpy).toHaveBeenLastCalledWith(0, 'normal', undefined);
+
+      // 2024 Invisible grants Initiative Advantage when rolling normally (DEX +4)
+      component.rollMode = 'normal';
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: undefined,
+        dnd_edition: '2024 Revision (5.5e)',
+        conditions: ['Invisible'],
+      });
+      component.rollInitiative();
+      expect(rollSpy).toHaveBeenLastCalledWith(4, 'advantage', undefined);
+
+      // 2014 Invisible does NOT grant Initiative Advantage
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: undefined,
+        dnd_edition: '2014 Edition',
+        conditions: ['Invisible'],
+      });
+      component.rollInitiative();
+      expect(rollSpy).toHaveBeenLastCalledWith(4, 'normal', undefined);
+
+      // 0 Immune damage keeps Concentration undisturbed
+      component.showConcentrationPrompt.set(false);
+      component.onDamageImmuneApplied({ raw: 32, label: 'Fire', mode: 'immune' });
+      component.onDamageImmuneApplied({ raw: 1, label: 'Fire', mode: 'resist' });
+      expect(component.showConcentrationPrompt()).toBe(false);
+
+      // Mobile sticky Initiative indicator reflects 2024 Invisible Advantage
+      expect(
+        component.hasHeroInitiativeAdvantage({
+          ...HERO,
+          dnd_edition: '2024 Revision (5.5e)',
+          conditions: ['Invisible'],
+        })
+      ).toBe(true);
+
+      // saveConditions initializes base_speed if absent before zeroing derived speed
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: undefined,
+        speed: 35,
+        base_speed: undefined,
+        conditions: [],
+      });
+      component.saveConditions({ conditions: ['Grappled'], concentratingOn: '' });
+      expect(charState.activeCharacter()!.base_speed).toBe(35);
+      expect(charState.activeCharacter()!.speed).toBe(0);
+
+      // AUTO-FAIL STR saving throw while Paralyzed short-circuits with showMessage (no 3D d20 [1])
+      rollSpy.mockClear();
+      const toastSvc = TestBed.inject(RollToastService);
+      const msgSpy = jest.spyOn(toastSvc, 'showMessage');
+      const showRollSpy = jest.spyOn(toastSvc, 'showRoll');
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: undefined,
+        conditions: ['Paralyzed'],
+      });
+      const autoFail = component.rollSavingThrow('STR');
+      expect(autoFail?.total).toBe(0);
+      expect(autoFail?.expression).toBe('AUTO-FAIL (Condition)');
+      expect(rollSpy).not.toHaveBeenCalled();
+      expect(showRollSpy).not.toHaveBeenCalled();
+      expect(msgSpy).toHaveBeenCalledWith(
+        expect.stringContaining('AUTO-FAIL CONDITION'),
+        expect.stringContaining('Paralyzed')
+      );
+
+      // Poisoned + 2024 Invisible cancel Initiative ADV vs DIS to normal
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: undefined,
+        dnd_edition: '2024 Revision (5.5e)',
+        conditions: ['Invisible', 'Poisoned'],
+      });
+      component.rollInitiative();
+      expect(rollSpy).toHaveBeenLastCalledWith(4, 'normal', undefined);
+
+      // onMobileHeroPatch preserves 2024 Exhaustion speed reduction optimistically on base_speed edits
+      charState.activeCharacter.set({
+        ...HERO,
+        active_campaign: undefined,
+        dnd_edition: '2024 Revision (5.5e)',
+        exhaustion_level: 2,
+        speed: 20,
+        base_speed: 30,
+      });
+      component.onMobileHeroPatch({ speed: 40 });
+      expect(charState.activeCharacter()!.base_speed).toBe(40);
+      expect(charState.activeCharacter()!.speed).toBe(30); // 40 - 2*5
+    });
+
     it('casting Fireball at 4th level rolls 9d6 with a "passed the save" button', () => {
       const charState = TestBed.inject(CharacterStateService);
       charState.activeCharacter.set({ ...HERO, char_level: 8, spell_save_dc: 15 });

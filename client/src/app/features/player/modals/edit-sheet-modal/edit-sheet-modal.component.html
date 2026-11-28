@@ -45,7 +45,50 @@
       <div><label for="edit-char-background" class="mb-1 block text-label font-semibold text-muted">Background:</label><input id="edit-char-background" forgeInput type="text" [(ngModel)]="editChar.background" /></div>
       <div><label for="edit-char-hp-max" class="mb-1 block text-label font-semibold text-muted">Max HP:</label><input id="edit-char-hp-max" forgeInput type="number" [(ngModel)]="editChar.hp_max" /></div>
       <div><label for="edit-char-ac" class="mb-1 block text-label font-semibold text-muted">Armor Class (AC):</label><input id="edit-char-ac" forgeInput type="number" [(ngModel)]="editChar.armor_class" /></div>
-      <div><label for="edit-char-speed" class="mb-1 block text-label font-semibold text-muted">Speed (ft):</label><input id="edit-char-speed" forgeInput type="number" [(ngModel)]="editChar.speed" /></div>
+      <div>
+        <label for="edit-char-speed" class="mb-1 block text-label font-semibold text-muted">Speed (ft):</label>
+        <input id="edit-char-speed" forgeInput type="number" [(ngModel)]="editableSpeed" />
+        @if (activeSpeedLock) {
+          <p class="mt-1 text-micro uppercase text-red">🔒 Derived 0 ft while {{ activeSpeedLock }} (editing base speed)</p>
+        }
+      </div>
+    </div>
+
+    <h4 class="mt-5 font-display text-body font-bold text-accent">Damage Defenses</h4>
+    <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div>
+        <label for="edit-char-resistances" class="mb-1 block text-label font-semibold text-muted">Resistances (½):</label>
+        <input
+          id="edit-char-resistances"
+          forgeInput
+          type="text"
+          placeholder="e.g. Fire, Cold"
+          [ngModel]="resistancesText"
+          (ngModelChange)="onDefenseChange('damage_resistances', $event)"
+        />
+      </div>
+      <div>
+        <label for="edit-char-immunities" class="mb-1 block text-label font-semibold text-muted">Immunities (0):</label>
+        <input
+          id="edit-char-immunities"
+          forgeInput
+          type="text"
+          placeholder="e.g. Poison, Psychic"
+          [ngModel]="immunitiesText"
+          (ngModelChange)="onDefenseChange('damage_immunities', $event)"
+        />
+      </div>
+      <div>
+        <label for="edit-char-vulnerabilities" class="mb-1 block text-label font-semibold text-muted">Vulnerabilities (×2):</label>
+        <input
+          id="edit-char-vulnerabilities"
+          forgeInput
+          type="text"
+          placeholder="e.g. Radiant, Thunder"
+          [ngModel]="vulnerabilitiesText"
+          (ngModelChange)="onDefenseChange('damage_vulnerabilities', $event)"
+        />
+      </div>
     </div>
 
     <h4 class="mt-5 font-display text-body font-bold text-accent">Ability Scores</h4>

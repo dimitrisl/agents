@@ -8,7 +8,12 @@ import {
   ForgeInputDirective,
 } from '../../../../shared/ui';
 import type { PartyMember } from '../../../../core/models/party.model';
-import { describeDmModifiers } from '../../../../core/rules';
+import {
+  ConditionCountermeasure,
+  describeDmModifiers,
+  detectConditionWarnings,
+  speedLockReason,
+} from '../../../../core/rules';
 import { BrokenPortraitTracker } from '../../../../core/utils/portrait';
 
 @Component({
@@ -75,12 +80,41 @@ export class PartyPanelComponent {
     return describeDmModifiers(member.dm_modifiers);
   }
 
+  conditionAntidotes(member: PartyMember): ConditionCountermeasure[] {
+    return detectConditionWarnings(member, member.conditions || []);
+  }
+
+  speedLock(member: PartyMember): string | null {
+    return speedLockReason(member);
+  }
+
+  hasStatusBadges(member: PartyMember): boolean {
+    return !!(
+      member.inspiration ||
+      (member.exhaustion_level ?? 0) > 0 ||
+      member.magic_items_suppressed ||
+      this.dmModifierSummary(member).length > 0 ||
+      member.dm_short_rest_unlocked ||
+      member.dm_long_rest_unlocked ||
+      member.dm_level_up_unlocked ||
+      member.concentrating_on ||
+      this.speedLock(member) ||
+      this.conditionAntidotes(member).length > 0 ||
+      (member.hp_current <= 0 && member.death_saves)
+    );
+  }
+
   isDeceasedByExhaustion(member: PartyMember): boolean {
     return (member.exhaustion_level ?? 0) >= 6 && !member.exhaustion_bypass;
   }
 
+  hasCondition(member: PartyMember, condition: string): boolean {
+    const low = condition.trim().toLowerCase();
+    return (member.conditions || []).some((c) => String(c || '').trim().toLowerCase() === low);
+  }
+
   conditionTone(member: PartyMember, condition: string): 'danger' | 'muted' {
-    return member.conditions.includes(condition) ? 'danger' : 'muted';
+    return this.hasCondition(member, condition) ? 'danger' : 'muted';
   }
 
   memberKey(member: PartyMember): string {

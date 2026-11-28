@@ -122,6 +122,30 @@ describe('MobileHeroViewComponent', () => {
     expect(component.hasSaveDisadvantage).toBe(true);
   });
 
+  it('renders AUTO-FAIL condition saves, speed 0 ft on Grappled, and immunities/vulnerabilities on mobile', () => {
+    fixture.componentRef.setInput('char', {
+      ...mockChar,
+      conditions: ['Paralyzed', 'Grappled'],
+      base_speed: 35,
+      damage_immunities: ['Poison'],
+      damage_vulnerabilities: ['Fire'],
+    });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="mobile-save-btn-STR"]')?.textContent).toContain('AUTO-FAIL');
+    expect(el.querySelector('[data-testid="mobile-save-btn-DEX"]')?.textContent).toContain('AUTO-FAIL');
+    expect(el.querySelector('[data-testid="mobile-save-btn-WIS"]')?.textContent).not.toContain('AUTO-FAIL');
+
+    fixture.componentRef.setInput('activeSubTab', 'senses');
+    fixture.detectChanges();
+    const sensesText = el.textContent || '';
+    expect(sensesText).toContain('0ft');
+    expect(sensesText).toContain('Grappled');
+    expect(sensesText).toContain('Immune: Poison');
+    expect(sensesText).toContain('Vuln: Fire');
+  });
+
   it('emits immutable charPatch updates without mutating @Input() char or stats in place and guards multiclass class/level', () => {
     const patchSpy = jest.spyOn(component.charPatch, 'emit');
     const originalStatsRef = component.char.stats;

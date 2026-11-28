@@ -34,9 +34,9 @@
         <div class="mt-2 flex flex-col gap-1">
           <button
             type="button"
-            class="flex min-h-7 items-center justify-between rounded-md bg-panel px-2 text-micro font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+            class="flex min-h-7 flex-wrap items-center justify-between gap-x-1 gap-y-0.5 rounded-md bg-panel px-2 py-1 text-micro font-semibold text-muted transition-colors hover:bg-surface-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
             [attr.aria-label]="'Roll ' + entry.key + ' check, ' + checkModifier(entry.key) + (hasCheckDisadvantage ? ' with disadvantage' : '')"
-            [title]="hasCheckDisadvantage ? 'Disadvantage from Exhaustion (2014)' : 'Ability check'"
+            [title]="hasCheckDisadvantage ? 'Disadvantage from Exhaustion or active condition' : 'Ability check'"
             (click)="abilityCheck.emit(entry.key)"
           >
             <span class="flex items-center gap-1">
@@ -49,16 +49,16 @@
           </button>
           <button
             type="button"
-            class="flex min-h-7 items-center justify-between rounded-md px-2 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+            class="flex min-h-7 flex-wrap items-center justify-between gap-x-1 gap-y-0.5 rounded-md px-2 py-1 text-micro font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
             [ngClass]="
               isProficient(entry.key)
                 ? 'bg-accent/10 text-accent hover:bg-accent/20'
                 : 'bg-panel text-muted hover:bg-surface-hover hover:text-ink'
             "
             [attr.aria-label]="
-              'Roll ' + entry.key + ' saving throw, ' + saveModifier(entry.key) + (isProficient(entry.key) ? ' (proficient)' : '') + (hasSaveDisadvantage ? ' with disadvantage' : '')
+              'Roll ' + entry.key + ' saving throw, ' + saveModifier(entry.key) + (isProficient(entry.key) ? ' (proficient)' : '') + (isSaveAutoFail(entry.key) ? ' (auto-fail by condition)' : hasSaveDisadvantageFor(entry.key) ? ' with disadvantage' : '')
             "
-            [title]="hasSaveDisadvantage ? 'Disadvantage from Exhaustion (2014)' : (isProficient(entry.key) ? 'Proficient saving throw' : 'Saving throw')"
+            [title]="isSaveAutoFail(entry.key) ? 'Auto-fail STR/DEX saves while Paralyzed, Stunned, Unconscious, or Petrified' : hasSaveDisadvantageFor(entry.key) ? 'Disadvantage from Exhaustion or active condition' : (isProficient(entry.key) ? 'Proficient saving throw' : 'Saving throw')"
             (click)="savingThrow.emit(entry.key)"
           >
             <span class="flex items-center gap-1">
@@ -66,7 +66,9 @@
                 <span class="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true"></span>
               }
               Save
-              @if (hasSaveDisadvantage) {
+              @if (isSaveAutoFail(entry.key)) {
+                <forge-badge tone="danger" size="sm">AUTO-FAIL</forge-badge>
+              } @else if (hasSaveDisadvantageFor(entry.key)) {
                 <forge-badge tone="danger" size="sm">DIS</forge-badge>
               }
             </span>

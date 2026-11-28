@@ -5,7 +5,9 @@ import type { CharacterSchema } from '../../../core/models/character.model';
 import {
   abilityCheckModifier,
   formatModifier,
+  hasConditionDisadvantage,
   hasExhaustionDisadvantage,
+  isAutoFailSave,
   isSaveProficient,
   savingThrowModifier,
 } from '../../../core/rules';
@@ -41,10 +43,18 @@ export class AbilityScoreGridComponent {
   }
 
   get hasCheckDisadvantage(): boolean {
-    return hasExhaustionDisadvantage(this.char, 'check');
+    return hasExhaustionDisadvantage(this.char, 'check') || hasConditionDisadvantage(this.char, 'check');
   }
 
   get hasSaveDisadvantage(): boolean {
     return hasExhaustionDisadvantage(this.char, 'save');
+  }
+
+  hasSaveDisadvantageFor(ability: string): boolean {
+    return hasExhaustionDisadvantage(this.char, 'save') || hasConditionDisadvantage(this.char, 'save', ability);
+  }
+
+  isSaveAutoFail(ability: string): boolean {
+    return isAutoFailSave(this.char, ability);
   }
 }

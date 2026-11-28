@@ -111,4 +111,20 @@ describe('AbilityScoreGridComponent', () => {
     expect(bypassCheck.textContent).not.toContain('DIS');
     expect(bypassSave.textContent).not.toContain('DIS');
   });
+
+  it('shows condition DIS (Poisoned/Restrained) and AUTO-FAIL badges on Paralyzed STR/DEX saves', () => {
+    const component = fixture.componentInstance;
+    fixture.componentRef.setInput('char', {
+      ...component.char,
+      conditions: ['Poisoned', 'Restrained', 'Paralyzed'],
+    } as any);
+    fixture.detectChanges();
+
+    const [strCheck, strSave] = Array.from(cards()[0].querySelectorAll('button')) as HTMLButtonElement[];
+    const [dexCheck, dexSave] = Array.from(cards()[1].querySelectorAll('button')) as HTMLButtonElement[];
+    expect(strCheck.textContent).toContain('DIS');
+    expect(dexCheck.textContent).toContain('DIS');
+    expect(strSave.textContent).toContain('AUTO-FAIL');
+    expect(dexSave.textContent).toContain('AUTO-FAIL');
+  });
 });
